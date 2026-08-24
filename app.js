@@ -240,6 +240,8 @@
   });
   $$('[data-open]').forEach(button=>button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openModal(button.dataset.open,{type:button.dataset.type});}));
   $$('[data-close]').forEach(button=>button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeModal(button);}));
+  $$('[data-go]').forEach(button=>button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();navigate(button.dataset.go);}));
+  $$('.nav-item[data-page]').forEach(button=>button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();navigate(button.dataset.page);}));
   $('transactionType').addEventListener('click',e=>{const b=e.target.closest('[data-value]');if(!b)return;transactionType=b.dataset.value;setSegment('transactionType',transactionType);fillCategories($('txCategory'),transactionType);});
   $('recurringType').addEventListener('click',e=>{const b=e.target.closest('[data-value]');if(!b)return;recurringType=b.dataset.value;setSegment('recurringType',recurringType);fillCategories($('recCategory'),recurringType);});
   $('transactionForm').addEventListener('submit',e=>{e.preventDefault();const item={id:$('txId').value||uid(),type:transactionType,amount:Number($('txAmount').value),label:$('txLabel').value.trim(),category:$('txCategory').value,date:$('txDate').value,accountId:$('txAccount').value};if(!item.amount||!item.label)return;const i=state.transactions.findIndex(t=>t.id===item.id);if(i>=0)state.transactions[i]=item;else state.transactions.push(item);save();closeModal(e.target);toast(i>=0?'Opération modifiée':'Opération ajoutée');});
