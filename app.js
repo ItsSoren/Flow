@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const STORAGE_KEY = 'flow_v4_2';
+  const TUTORIAL_SEEN_KEY = 'flow_tutorial_seen_v1';
   const CATEGORIES = {
     expense: [
       ['courses','Courses','🛒'],['restaurants','Restaurants','🍜'],['logement','Logement','🏠'],
@@ -221,8 +222,9 @@
     {title:'Anticipe sans te prendre la tête',text:'Ajoute les salaires, factures et abonnements dans “À venir”. Flow calcule ce qu’il restera réellement pour le mois.',art:`<svg viewBox="0 0 240 240"><rect x="44" y="46" width="152" height="150" rx="28" fill="var(--surface)"/><path d="M44 87h152" stroke="var(--line)" stroke-width="3"/><path d="M78 35v23m84-23v23" stroke="var(--primary)" stroke-width="7"/><circle cx="82" cy="121" r="9" fill="var(--primary)"/><circle cx="120" cy="121" r="9" fill="var(--peach)"/><circle cx="158" cy="121" r="9" fill="var(--lilac)"/><path d="m84 160 20 16 52-51" stroke="var(--income)" stroke-width="7" fill="none"/></svg>`},
     {title:'Une question ? L’aide reste là',text:'Le bouton “?” dans la barre du haut ouvre le wiki Flow. Recherche une fonction ou relance ce guide depuis les réglages.',art:`<svg viewBox="0 0 240 240"><circle cx="120" cy="112" r="72" fill="var(--surface)"/><circle cx="120" cy="112" r="43" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="3"/><path d="M102 99a19 19 0 1 1 28 17c-8 5-10 9-10 16" stroke="var(--primary)" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="120" cy="151" r="4" fill="var(--primary)"/><rect x="75" y="193" width="90" height="10" rx="5" fill="var(--line)"/></svg>`}
   ];
-  function showTutorial(step=0){tutorialStep=step;$('tutorialModal').classList.remove('hidden');renderTutorial();}
+  function showTutorial(step=0){tutorialStep=step;try{localStorage.setItem(TUTORIAL_SEEN_KEY,'1');}catch{}$('tutorialModal').classList.remove('hidden');renderTutorial();}
   function renderTutorial(){const t=tutorials[tutorialStep];$('tutorialArt').innerHTML=t.art;$('tutorialTitle').textContent=t.title;$('tutorialText').textContent=t.text;$('tutorialStepLabel').textContent=`${tutorialStep+1} sur ${tutorials.length}`;$('tutorialDots').innerHTML=tutorials.map((_,i)=>`<i class="${i===tutorialStep?'active':''}"></i>`).join('');$('tutorialNext').textContent=tutorialStep===tutorials.length-1?'C’est parti':'Continuer';}
+  function hasSeenTutorial(){try{return localStorage.getItem(TUTORIAL_SEEN_KEY)==='1';}catch{return false;}}
   function closeTutorial(){$('tutorialModal').classList.add('hidden');}
 
   document.addEventListener('click',e=>{
@@ -266,5 +268,5 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(state.settings.mode==='auto')applyTheme();});
   let resizeTimer; addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(renderDashboard,100);});
   const hour=new Date().getHours();$('greeting').textContent=hour<12?'Bonjour':hour<18?'Bon après-midi':'Bonsoir';
-  applyTheme();renderAll();navigate(location.hash.slice(1)||'dashboard');setTimeout(()=>showTutorial(0),280);
+  applyTheme();renderAll();navigate(location.hash.slice(1)||'dashboard');if(!hasSeenTutorial())setTimeout(()=>showTutorial(0),280);
 })();
