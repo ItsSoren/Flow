@@ -49,6 +49,7 @@
     </nav>
     <div class="top-actions">
       <label class="account-picker"><span>Compte</span><select id="activeAccountSelect" aria-label="Compte actif"></select></label>
+      <button class="cloud-account-button" id="cloudAccountButton" type="button" aria-label="Synchroniser Flow" title="Compte et synchronisation"><svg><use href="#i-wallet"/></svg><span id="cloudAccountLabel">Connexion</span></button>
       <button class="icon-button help-button" data-open="help" aria-label="Ouvrir l’aide" title="Rechercher dans l’aide"><svg><use href="#i-help"/></svg></button>
       <button class="icon-button settings-access" data-go="settings" aria-label="Ouvrir les réglages" title="Réglages"><svg><use href="#i-settings"/></svg></button>
       <button class="icon-button" id="themeToggle" aria-label="Changer de thème"><svg><use href="#i-moon"/></svg></button>
@@ -125,6 +126,7 @@
     <section class="page" id="page-settings">
       <div class="page-intro"><div><span class="eyebrow">Préférences</span><h1>Réglages</h1><p>Personnalise Flow et garde une copie de tes données.</p></div></div>
       <div class="settings-grid">
+        <article class="card settings-card cloud-settings-card"><div class="settings-icon"><svg><use href="#i-wallet"/></svg></div><div><h2>Synchronisation</h2><p id="cloudStatus">Tes données restent sur cet appareil. Connecte-toi pour les retrouver sur PC et mobile.</p><div class="cloud-settings-actions"><button class="button secondary" id="cloudSignIn" type="button">Se connecter</button><button class="button ghost hidden" id="cloudSignOut" type="button">Se déconnecter</button></div></div></article>
         <article class="card settings-card"><div class="settings-icon"><svg><use href="#i-wallet"/></svg></div><div><h2>Mes comptes</h2><p>Ajoute un compte courant ou un livret.</p><div id="accountsList" class="settings-list"></div><button class="button secondary" data-open="account"><svg><use href="#i-plus"/></svg>Ajouter un compte</button></div></article>
         <article class="card settings-card"><div class="settings-icon"><svg><use href="#i-moon"/></svg></div><div><h2>Apparence</h2><p>Choisis séparément la luminosité et l’univers coloré.</p><span class="option-label">Mode</span><div class="theme-options" id="themeModeOptions"><button data-mode="auto"><i class="theme-dot auto"></i>Auto</button><button data-mode="light"><i class="theme-dot light"></i>Clair</button><button data-mode="dark"><i class="theme-dot dark"></i>Sombre</button></div><span class="option-label">Palette</span><div class="theme-options" id="paletteOptions"><button data-palette="flow"><i class="theme-dot flow"></i>Flow</button><button data-palette="neon-sakura"><i class="theme-dot sakura"></i>Neon Sakura</button><button data-palette="ocean-peace"><i class="theme-dot ocean"></i>Ocean Peace</button></div></div></article>
         <article class="card settings-card backup-card"><div class="settings-icon"><svg><use href="#i-download"/></svg></div><div><h2>Sauvegarde & transfert</h2><p>Utilise un fichier ou copie un code autonome vers un autre appareil.</p><div class="button-row"><button class="button secondary" id="exportData"><svg><use href="#i-download"/></svg>Exporter le fichier</button><label class="button secondary file-button"><svg><use href="#i-upload"/></svg>Importer un fichier<input id="importData" type="file" accept="application/json,.json"></label></div><div class="transfer-box"><span class="option-label">Transfert par code</span><div class="button-row"><button class="button secondary" id="generateTransferCode">Générer le code</button><button class="button secondary hidden" id="copyTransferCode">Copier</button></div><textarea class="transfer-code hidden" id="transferCodeOut" readonly aria-label="Code de transfert généré"></textarea><label class="transfer-label">Importer un code<textarea class="transfer-code" id="transferCodeIn" placeholder="Colle ici le code Flow reçu…"></textarea></label><button class="button primary" id="importTransferCode">Lire et importer le code</button></div></div></article>
@@ -189,10 +191,23 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="cloudAuthModal" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
+    <form class="modal small cloud-auth-modal" id="cloudAuthForm"><div class="modal-head"><div><span class="eyebrow">Synchronisation Flow</span><h2 id="cloudAuthTitle">Retrouve ton espace</h2></div><button type="button" class="close" data-close>×</button></div>
+      <p class="modal-intro" id="cloudAuthIntro">Connecte-toi pour retrouver tes comptes, opérations, projets et prévisions sur tous tes appareils.</p>
+      <label id="cloudNameField" class="hidden">Nom affiché<input id="cloudName" maxlength="40" autocomplete="name" placeholder="Ton prénom ou pseudo"></label>
+      <label>E-mail<input id="cloudEmail" type="email" required autocomplete="email" placeholder="toi@exemple.fr"></label>
+      <label>Mot de passe<input id="cloudPassword" type="password" required minlength="6" autocomplete="current-password" placeholder="6 caractères minimum"></label>
+      <p class="cloud-auth-error" id="cloudAuthError" role="alert"></p>
+      <div class="modal-actions"><button class="button ghost" type="button" id="cloudAuthSwitch">Créer un compte</button><button class="button primary" type="submit" id="cloudAuthSubmit">Se connecter</button></div>
+      <button class="cloud-offline-link" type="button" id="cloudOffline">Continuer sans compte</button>
+    </form>
+  </div>
+
   <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
     <div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=4.2.12"></script>
+  <script src="app.js?v=4.2.13"></script>
+  <script type="module" src="flow-cloud.js?v=1.0.0"></script>
 </body>
 </html>

@@ -98,7 +98,12 @@
   let transactionType = 'expense';
   let recurringType = 'expense';
   let tutorialStep = 0;
-  const save = () => { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderAll(); };
+  const save = (notifyCloud=true) => { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderAll(); if(notifyCloud)window.dispatchEvent(new CustomEvent('flow:state-change')); };
+  window.FlowApp = {
+    getState: () => JSON.parse(JSON.stringify(state)),
+    applyRemoteState: raw => { state=normalizeState(raw); save(false); },
+    getStorageKey: () => STORAGE_KEY
+  };
 
   function activeAccount() { return state.accounts.find(a=>a.id===state.activeAccountId) || state.accounts[0]; }
   function accountBalance(id) { const acc=state.accounts.find(a=>a.id===id); return (acc?.initialBalance||0)+state.transactions.filter(t=>t.accountId===id).reduce((s,t)=>s+(t.type==='income'?t.amount:-t.amount),0); }

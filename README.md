@@ -16,6 +16,12 @@ Flow permet de suivre ses comptes et ses opérations, d’anticiper les dépense
 - sauvegarde, import et transfert des données par fichier ou code autonome ;
 - migration des anciennes données Flow.
 
+## Synchronisation multi-appareils
+
+Flow peut utiliser l’authentification Firebase du projet `novatasks-23d9d` pour retrouver les mêmes données sur PC et mobile. Les données Flow sont isolées dans `flowUsers/{uid}` ; elles ne réutilisent jamais les collections Sōlo/NovaTasks (`users`, `workspaces`, `invites`).
+
+Le mode local reste disponible sans connexion. La synchronisation cloud est limitée à une sauvegarde personnelle par compte, avec une écriture regroupée après les modifications pour préserver le quota Spark. Les règles dédiées sont fournies dans `flow-firestore.rules` et doivent être fusionnées avec les règles existantes du projet, jamais remplacer les règles Sōlo/NovaTasks.
+
 ## Utilisation
 
 Flow fonctionne directement dans le navigateur. Ouvre `index.html` ou publie le contenu du dépôt sur un hébergement statique.

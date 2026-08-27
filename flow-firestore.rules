@@ -1,0 +1,37 @@
+// Flow rules for project novatasks-23d9d.
+// Merge the documents/functions inside this file with the existing Sōlo/NovaTasks rules.
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function flowSignedIn() { return request.auth != null; }
+  function flowOwn(userId) { return flowSignedIn() && request.auth.uid == userId; }
+  function flowMember(workspaceId) {
+    return flowSignedIn() && exists(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)/members/$(request.auth.uid));
+  }
+
+match /flowUsers/{userId} {
+  allow read, create, update: if flowOwn(userId);
+  allow delete: if false;
+  match /workspaces/{workspaceId} { allow read, create, update, delete: if flowOwn(userId); }
+}
+
+match /flowWorkspaces/{workspaceId} {
+  allow get: if flowMember(workspaceId);
+  allow list: if false;
+  allow create: if flowSignedIn() && request.resource.data.ownerId == request.auth.uid;
+  allow update: if flowMember(workspaceId);
+  allow delete: if false;
+  match /members/{userId} { allow read, create, update, delete: if flowMember(workspaceId); }
+  match /transactions/{transactionId} { allow read, create, update, delete: if flowMember(workspaceId); }
+  match /recurring/{recurringId} { allow read, create, update, delete: if flowMember(workspaceId); }
+  match /goals/{goalId} { allow read, create, update, delete: if flowMember(workspaceId); }
+}
+
+  match /flowInvites/{code} {
+    allow get: if flowSignedIn();
+    allow list: if false;
+    allow create, update: if flowSignedIn() && request.resource.data.createdBy == request.auth.uid;
+    allow delete: if flowSignedIn() && resource.data.createdBy == request.auth.uid;
+  }
+ }
+}
