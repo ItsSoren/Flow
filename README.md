@@ -1,4 +1,4 @@
-# Flo̸w
+# Flōw
 
 **Une application de finances personnelles simple, locale et agréable au quotidien.**
 
