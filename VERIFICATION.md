@@ -14,10 +14,10 @@ Vérifications locales exécutées le 3 octobre 2026, sur Windows avec Chrome in
 
 ## Pas encore prouvé / à terminer avant livraison complète
 
-- Accès administrateur au projet Firebase : la console du compte connecté a indiqué projet absent ou autorisation insuffisante. Aucune règle de production déployée pour cette V5.
-- Comparaison avec les dernières règles réellement publiées, puis déploiement du fichier complet et contrôles Auth/synchronisation avec données fictives sur deux appareils.
+- Le 3 octobre 2026, l’utilisateur confirme avoir installé les règles Firebase et autorise la publication officielle. Le précédent blocage d’accès n’est donc plus retenu comme obstacle à cette publication. Cette confirmation ne constitue pas une vérification indépendante des règles de production.
+- Contrôles Auth/synchronisation sur deux appareils en production : restent à confirmer ; les tests multi-appareils automatisés utilisent les émulateurs, pas les données réelles.
 - Notifications distantes : implémentation et tests locaux présents, mais service non déployé et `push-config.json` vide. Firebase d’abord selon le choix de l’utilisateur ; les rappels internes restent disponibles.
 - Compléter les informations de contact privées et les paramètres opérationnels de confidentialité avant diffusion large.
-- Push du site public uniquement après la porte Firebase, puis vérifier la version servie et la mise à jour PWA.
+- Publication officielle autorisée sur `main` après confirmation utilisateur des règles ; contrôler la version effectivement servie par GitHub Pages après le push.
 
-L’aperçu local permet d’essayer l’interface dès maintenant. Ces éléments restant ouverts ne doivent pas être présentés comme un déploiement terminé.
+Le mini-guide V5 est accessible depuis la cloche et Réglages → Notifications. Son état de lecture est enregistré localement par utilisateur, sans nouvelle requête Firebase ni modification du schéma des règles. Un test vérifie son unicité, son accès et la persistance de lecture après rechargement sur les quatre tailles d’écran.
