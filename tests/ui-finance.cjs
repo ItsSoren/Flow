@@ -1,0 +1,60 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { chromium } = require('playwright');
+const today = new Date().toISOString().slice(0, 10);
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: process.env.FLOW_BROWSER_CHANNEL || undefined });
+  try {
+    for (const width of [1440, 390]) {
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
+      const page = await context.newPage(); const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      page.on('dialog', d => d.accept());
+      await page.route('**/flow-cloud.js*', route => route.fulfill({ contentType: 'text/javascript', body: 'window.FlowCloud={getCurrentUser:()=>null,getIdToken:async()=>null};' }));
+      await page.goto(process.env.FLOW_TEST_URL || 'http://127.0.0.1:4173/');
+      await page.waitForFunction(() => window.FlowApp);
+      await page.locator('#skipTutorial').waitFor({ state: 'visible' });
+      await page.locator('#skipTutorial').click();
+      await page.evaluate(() => { const s = FlowCore.getEmptyState(); s.accounts[0].openingBalance = 2000; FlowApp.applyRemoteState(s); });
+      const go = async name => page.locator(`[data-page="${name}"], [data-go="${name}"]`).filter({ visible: true }).first().click();
+      const balances = () => page.evaluate(() => { const s = FlowApp.getState(); return [FlowCore.getAccountBalance(s, 'main'), FlowCore.getSpendableBreakdown(s).spendable]; });
+      await go('goals'); await page.locator('[data-open="goal"]').click();
+      await page.locator('#goalName').fill('Voyage test'); await page.locator('#goalTarget').fill('1000');
+      await page.locator('#goalAutoMode').selectOption('fixed'); await page.locator('#goalAutoValue').fill('100');
+      await page.locator('#goalForm .primary').click();
+      assert.equal(await page.evaluate(() => FlowApp.getState().goals.length), 1);
+      await go('dashboard'); await page.locator('.quick.income').click();
+      await page.locator('#txAmount').fill('1000'); await page.locator('#txLabel').fill('Salaire test');
+      await page.locator('#txDate').fill(today); await page.locator('#txCategory').selectOption('salaire');
+      await page.locator('#transactionForm .primary').click();
+      assert.deepEqual(await balances(), [3000, 2900]);
+      assert.equal(await page.evaluate(() => FlowApp.getState().reservations[0].status), 'pending');
+      await page.locator('[data-reservation-action="deny"]').click();
+      assert.deepEqual(await balances(), [3000, 3000]);
+      await go('goals'); await page.locator('.goal-footer input').fill('50'); await page.locator('[data-deposit]').click();
+      assert.deepEqual(await balances(), [3000, 2950], 'manual reserve does not change bank balance');
+      await go('dashboard'); await page.locator('#reservationDetails').evaluate(el => el.open = true);
+      await page.locator('[data-reservation-action="release"]').click();
+      assert.deepEqual(await balances(), [3000, 3000]);
+      await go('recurring'); await page.locator('[data-open="recurring"]').click();
+      await page.locator('#recLabel').fill('Facture test'); await page.locator('#recAmount').fill('25');
+      await page.locator('#recDate').fill(today); await page.locator('#recFrequency').selectOption('once');
+      await page.locator('#recurringForm .primary').click();
+      await page.locator('[data-confirm-rec]').click();
+      assert.equal(await page.locator('[data-confirm-rec]').count(), 0);
+      assert.equal(await page.evaluate(() => FlowApp.getState().transactions.length), 2, 'single confirmation creates exactly one transaction');
+      assert.deepEqual(await balances(), [2975, 2975]);
+      await go('settings'); await page.locator('#addReminderButton').click();
+      await page.locator('#reminderTitle').fill('Vérifier mon budget'); await page.locator('#reminderDate').fill(today);
+      await page.locator('#reminderForm .primary').click();
+      assert.equal(await page.evaluate(() => FlowApp.getState().reminders.length), 1);
+      await page.locator('[data-open="notifications"]').filter({ visible: true }).first().click();
+      assert(await page.locator('#notificationsModal').isVisible());
+      await page.locator('#notificationsModal .close').click();
+      assert(!(await page.locator('#notificationsModal').isVisible()));
+      assert.deepEqual(errors, []);
+      console.log(`${width}px: goal, salary reservation/refusal, manual reserve/release, recurring confirmation, reminder, bell: PASS`);
+      await context.close();
+    }
+  } finally { await browser.close(); }
+})().catch(e => { console.error(e); process.exitCode = 1; });

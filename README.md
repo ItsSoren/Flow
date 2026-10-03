@@ -1,37 +1,52 @@
-# Flōw
+# Flōw — V5
 
-**Une application de finances personnelles simple, locale et agréable au quotidien.**
+Une application de finances personnelles locale, avec synchronisation Firebase facultative. Le dépôt reste nommé **Flow** ; le nom affiché est **Flōw**.
 
-Flow permet de suivre ses comptes et ses opérations, d’anticiper les dépenses à venir et de visualiser ses objectifs d’épargne sans transformer la gestion de son argent en tableau comptable.
+## Au quotidien
 
-## Fonctions principales
+- Disponible jusqu’au prochain salaire : comptes inclus, charges prévues, réservations et marge de sécurité, sans compter un revenu futur comme déjà reçu.
+- Comptes courants, épargne, espèces et autres ; dépenses, revenus, transferts internes, favoris et rapprochement du solde.
+- Récurrents à confirmer, objectifs et réservations. Sur salaire confirmé, une réservation automatique peut être refusée pendant cinq minutes ; sinon elle se confirme. Il s’agit d’un budget virtuel, **pas d’un virement bancaire**.
+- Import CSV avec aperçu, choix des colonnes et détection des doublons ; aucune connexion bancaire automatique dans cette version.
+- Thèmes Flow, Neon Sakura et Ocean Peace en clair/sombre, densité réglable, navigation mobile et animations respectant la réduction des mouvements.
+- Tutoriel affiché une fois dans ce navigateur et relançable, wiki recherchable, réglages, confidentialité et crédits.
+- Installation PWA et accès local hors connexion après une première ouverture réussie. Rappels dans l’application ; notifications en arrière-plan uniquement après configuration du service optionnel.
+- Espaces partagés facultatifs : objectif ou budget saisi explicitement, sans recopier les comptes ni l’historique personnels.
 
-- tableau de bord clair avec solde, reste à vivre et aperçu mensuel ;
-- comptes, revenus, dépenses et historique des opérations ;
-- paiements récurrents et prévisions ;
-- projets et objectifs d’épargne ;
-- thèmes clair et sombre avec les palettes Flow, Neon Sakura et Ocean Peace ;
-- interface responsive pour ordinateur et mobile ;
-- tutoriel de bienvenue et wiki intégré ;
-- sauvegarde, import et transfert des données par fichier ou code autonome ;
-- migration des anciennes données Flow.
+## Lancer en local
 
-## Synchronisation multi-appareils
+Installer Node.js, puis :
 
-Flow peut utiliser l’authentification Firebase du projet `novatasks-23d9d` pour retrouver les mêmes données sur PC et mobile. Les données Flow sont isolées dans `flowUsers/{uid}` ; elles ne réutilisent jamais les collections Sōlo/NovaTasks (`users`, `workspaces`, `invites`).
+```sh
+npm ci
+npm start
+```
 
-Le mode local reste disponible sans connexion. La synchronisation cloud est limitée à une sauvegarde personnelle par compte, avec une écriture regroupée après les modifications pour préserver le quota Spark. Les règles dédiées sont fournies dans `flow-firestore.rules` et doivent être fusionnées avec les règles existantes du projet, jamais remplacer les règles Sōlo/NovaTasks.
+Ouvrir `http://127.0.0.1:4173/`. Utiliser un serveur HTTP, pas une ouverture `file://` : les modules et l’installation PWA en dépendent. En production, servir le site en HTTPS.
 
-## Utilisation
+## Sauvegardes et transferts
 
-Flow fonctionne directement dans le navigateur. Ouvre `index.html` ou publie le contenu du dépôt sur un hébergement statique.
+Dans **Réglages → Sauvegarde & transfert**, exporter un fichier ou copier un code autonome. Le code contient les données : sa longueur dépend de l’historique, avec des lignes de 64 caractères pour faciliter la copie. Un identifiant de 64 caractères ne peut pas contenir un historique arbitraire sans serveur. Les anciens codes `FLOW42` sont lisibles ; les nouveaux commencent par `FLOW50`.
 
-Les données restent dans le navigateur de l’appareil. Pour les déplacer vers un autre appareil, utilise **Réglages → Sauvegarde & transfert**.
+Les sauvegardes ne sont **pas chiffrées**. Ne pas les publier ni les envoyer à une personne non autorisée. L’import remplace les données personnelles après confirmation : conserver une sauvegarde avant une migration.
 
-## Confidentialité
+## Firebase et confidentialité
 
-Aucun compte en ligne ni serveur n’est nécessaire. Les informations financières ne quittent pas l’appareil, sauf lorsqu’une sauvegarde ou un code de transfert est volontairement exporté.
+Le projet est `novatasks-23d9d`, partagé avec Sōlo/NovaTasks pour Firebase Auth. Les données Flōw utilisent uniquement `flowUsers`, `flowWorkspaces` et `flowInvites` ; les collections Sōlo `users`, `workspaces` et `invites` restent séparées.
 
----
+En mode local, les données restent dans ce navigateur. Avec la connexion activée, l’état personnel est envoyé à Firestore, les écritures sont regroupées et les conflits entre appareils demandent un choix. Ce n’est pas un chiffrement de bout en bout. L’effacement des données personnelles Flōw ne supprime ni le compte Auth partagé ni les espaces collaboratifs.
 
-Application web de gestion de budget personnel — personal finance, expense tracker, budget dashboard, savings goals.
+Voir [FIREBASE_SETUP.md](FIREBASE_SETUP.md), [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md), [Confidentialité](privacy.html) et [Crédits](credits.html). Les tests locaux ne prouvent pas qu’une configuration de production est déjà publiée.
+
+## Vérification
+
+```sh
+npm test
+npm run test:rules
+npm run test:ui
+node tests/ui-offline.cjs
+```
+
+Les tests de règles utilisent exclusivement l’émulateur `demo-flow-v5`, jamais la base de production. Ils nécessitent Java compatible avec la version installée de Firebase CLI. Les tests navigateur nécessitent l’aperçu démarré et Chromium Playwright (`npx playwright install chromium`), ou Chrome installé avec `FLOW_BROWSER_CHANNEL=chrome`.
+
+Les notifications en arrière-plan restent désactivées lorsque `push-config.json` ne contient pas de service et de clé publique. Le code du service optionnel et ses instructions sont dans [push-server/README.md](push-server/README.md).

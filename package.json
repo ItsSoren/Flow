@@ -1,0 +1,18 @@
+{
+  "name": "flow-personal-finance",
+  "version": "5.0.0",
+  "private": true,
+  "description": "Flōw, une application de suivi personnel local-first.",
+  "scripts": {
+    "start": "node scripts/preview-server.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:ui": "node tests/ui-smoke.cjs && node tests/ui-finance.cjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-flow-v5 \"node --test tests/firestore-rules.cjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^15.32.1",
+    "playwright": "1.62.1"
+  }
+}

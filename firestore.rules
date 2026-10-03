@@ -1,0 +1,288 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function validRole(role) { return role in ['admin', 'member', 'viewer']; }
+    function memberPath(workspaceId, userId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId);
+    }
+    function isMember(workspaceId) {
+      return signedIn() && exists(memberPath(workspaceId, request.auth.uid));
+    }
+    function isAdmin(workspaceId) {
+      return isMember(workspaceId) && get(memberPath(workspaceId, request.auth.uid)).data.role == 'admin';
+    }
+    function canEdit(workspaceId) {
+      return isMember(workspaceId) && get(memberPath(workspaceId, request.auth.uid)).data.role in ['admin', 'member'];
+    }
+    // Flow partage le projet Firebase, mais possède ses propres collections.
+    // Ces helpers ne lisent jamais les collections Sōlo/NovaTasks.
+    function flowSignedIn() { return request.auth != null; }
+    function flowMemberPath(workspaceId, userId) {
+      return /databases/$(database)/documents/flowWorkspaces/$(workspaceId)/members/$(userId);
+    }
+    function flowMember(workspaceId) {
+      return flowSignedIn() && exists(flowMemberPath(workspaceId, request.auth.uid));
+    }
+    function flowAdmin(workspaceId) {
+      return flowMember(workspaceId) && get(flowMemberPath(workspaceId, request.auth.uid)).data.role == 'admin';
+    }
+    function flowCanEdit(workspaceId) {
+      return flowMember(workspaceId)
+        && get(flowMemberPath(workspaceId, request.auth.uid)).data.role in ['admin', 'member'];
+    }
+    function flowRole(role) { return role in ['admin', 'member', 'viewer']; }
+    function flowOwnerBootstrap(workspaceId, userId) {
+      return existsAfter(/databases/$(database)/documents/flowWorkspaces/$(workspaceId))
+        && getAfter(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId == userId
+        && request.resource.data.role == 'admin';
+    }
+    function flowAcceptedInvite(workspaceId, userId) {
+      return request.resource.data.uid == userId
+        && flowRole(request.resource.data.role)
+        && request.resource.data.inviteCode is string
+        && exists(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode))
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.workspaceId == workspaceId
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.role == request.resource.data.role
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.expiresAt > request.time;
+    }
+    function flowValidPersonalDocument(data) {
+      return data.keys().hasOnly(['personalState', 'revision', 'schemaVersion', 'updatedAt'])
+        && data.personalState is map
+        && data.personalState.keys().hasAll(['version', 'accounts', 'transactions', 'recurring', 'goals'])
+        && data.personalState.keys().hasOnly(['version', 'activeAccountId', 'accounts', 'transactions', 'recurring', 'goals', 'reservations', 'salaryTriggers', 'notifications', 'reminders', 'importFingerprints', 'settings', 'migratedFrom'])
+        && data.personalState.accounts is list && data.personalState.accounts.size() <= 100
+        && data.personalState.transactions is list && data.personalState.transactions.size() <= 5000
+        && data.personalState.recurring is list && data.personalState.recurring.size() <= 200
+        && data.personalState.goals is list && data.personalState.goals.size() <= 200
+        && data.personalState.reservations is list && data.personalState.reservations.size() <= 2000
+        && data.personalState.salaryTriggers is list && data.personalState.salaryTriggers.size() <= 5000
+        && data.personalState.notifications is list && data.personalState.notifications.size() <= 1000
+        && data.personalState.reminders is list && data.personalState.reminders.size() <= 500
+        && data.personalState.importFingerprints is list && data.personalState.importFingerprints.size() <= 10000
+        && data.personalState.settings is map
+        && data.revision is int && data.revision >= 1
+        && data.schemaVersion == 1
+        && data.updatedAt == request.time;
+    }
+    function flowValidInviteCode(code) {
+      return code.matches('^[A-Za-z0-9_-]{32,128}$');
+    }
+    function flowValidWorkspace(data) {
+      return data.keys().hasOnly(['ownerId', 'name', 'kind', 'memberCount', 'createdAt', 'updatedAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 48
+        && data.kind in ['project', 'budget']
+        && data.memberCount is int && data.memberCount >= 1 && data.memberCount <= 100
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+    function flowValidSharedSummary(data) {
+      return data.keys().hasOnly(['title', 'kind', 'target', 'saved', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 48
+        && data.kind in ['project', 'budget']
+        && data.target is number && data.target >= 0 && data.target <= 10000000
+        && data.saved is number && data.saved >= 0 && data.saved <= data.target
+        && data.ownerId is string && data.ownerId.size() <= 128
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+    function validTask(data) {
+      return data.keys().hasAll(['title', 'description', 'priority', 'status', 'createdBy', 'updatedAt'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 100
+        && data.description is string && data.description.size() <= 600
+        && data.priority in [1, 2, 3]
+        && data.status in ['open', 'done']
+        && data.createdBy is string
+        && (!data.keys().hasAny(['dueDate']) || (data.dueDate is string && data.dueDate.size() <= 10));
+    }
+    function validNote(data) {
+      return data.keys().hasAll(['title', 'content', 'linkUrl', 'createdBy', 'updatedAt'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 100
+        && data.content is string && data.content.size() <= 12000
+        && data.linkUrl is string && data.linkUrl.size() <= 2048
+        && data.createdBy is string;
+    }
+    function ownerBootstrap(workspaceId, userId) {
+      return existsAfter(/databases/$(database)/documents/workspaces/$(workspaceId))
+        && getAfter(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == userId
+        && request.resource.data.role == 'admin';
+    }
+    function acceptedInvite(workspaceId, userId) {
+      return request.resource.data.uid == userId
+        && validRole(request.resource.data.role)
+        && request.resource.data.inviteCode is string
+        && exists(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode))
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.workspaceId == workspaceId
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.role == request.resource.data.role
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.expiresAt > request.time;
+    }
+
+    // A user can read and edit only their own profile. Workspace index documents
+    // are created atomically with a membership and cannot grant any permissions.
+    match /users/{userId} {
+      allow read, create, update: if signedIn() && request.auth.uid == userId;
+      allow delete: if false;
+      match /workspaces/{workspaceId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId
+          && request.resource.data.workspaceId == workspaceId
+          && existsAfter(memberPath(workspaceId, userId))
+          && request.resource.data.role == getAfter(memberPath(workspaceId, userId)).data.role;
+        allow update: if isAdmin(workspaceId)
+          && request.resource.data.workspaceId == workspaceId
+          && request.resource.data.role == getAfter(memberPath(workspaceId, userId)).data.role;
+        allow delete: if signedIn() && (request.auth.uid == userId || isAdmin(workspaceId));
+      }
+    }
+
+    // Invites are high-entropy document ids. They can be fetched by a known code,
+    // but never listed. No Firebase Storage or Cloud Functions are required.
+    match /invites/{inviteCode} {
+      // Le code est un identifiant aléatoire de 8 caractères : il n’est jamais
+      // listable. La date d’expiration est vérifiée côté client afin qu’un code
+      // inconnu renvoie « invalide » plutôt qu’une erreur de permission.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && isAdmin(request.resource.data.workspaceId);
+      allow update: if signedIn() && resource.data.workspaceId == request.resource.data.workspaceId
+        && isAdmin(resource.data.workspaceId);
+      allow delete: if signedIn() && isAdmin(resource.data.workspaceId);
+    }
+
+    match /workspaces/{workspaceId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberCount == 1;
+      allow get: if isMember(workspaceId);
+      allow list: if false;
+      allow update: if isAdmin(workspaceId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.memberCount >= 1;
+      allow delete: if false;
+
+      match /members/{userId} {
+        allow read: if isMember(workspaceId) || (signedIn() && userId == request.auth.uid);
+        allow create: if signedIn() && request.auth.uid == userId
+          && (ownerBootstrap(workspaceId, userId) || acceptedInvite(workspaceId, userId));
+        allow update: if isAdmin(workspaceId) && validRole(request.resource.data.role)
+          && request.resource.data.uid == resource.data.uid
+          && (userId != get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId
+              || request.resource.data.role == 'admin');
+        allow delete: if userId != get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId
+          && (isAdmin(workspaceId) || (signedIn() && request.auth.uid == userId));
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isMember(workspaceId);
+        allow create: if canEdit(workspaceId) && validTask(request.resource.data)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if canEdit(workspaceId) && validTask(request.resource.data)
+          && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if canEdit(workspaceId);
+      }
+
+      match /notes/{noteId} {
+        allow read: if isMember(workspaceId);
+        allow create: if canEdit(workspaceId) && validNote(request.resource.data)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if canEdit(workspaceId) && validNote(request.resource.data)
+          && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if canEdit(workspaceId);
+      }
+
+      // This is intentionally compact: one immutable event per meaningful action,
+      // capped in the interface at 25 documents.
+      match /activity/{activityId} {
+        allow read: if isMember(workspaceId);
+        allow create: if canEdit(workspaceId)
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.kind in ['workspace', 'task-created', 'task-done', 'note-saved', 'member', 'invite'];
+        allow update, delete: if false;
+      }
+    }
+
+    match /flowUsers/{userId} {
+      allow read: if flowSignedIn() && request.auth.uid == userId;
+      allow create: if flowSignedIn() && request.auth.uid == userId
+        && flowValidPersonalDocument(request.resource.data) && request.resource.data.revision == 1;
+      allow update: if flowSignedIn() && request.auth.uid == userId
+        && flowValidPersonalDocument(request.resource.data)
+        && (resource.data.keys().hasAny(['revision'])
+          ? request.resource.data.revision == resource.data.revision + 1
+          : request.resource.data.revision == 1);
+      allow delete: if flowSignedIn() && request.auth.uid == userId;
+      match /workspaces/{workspaceId} {
+        allow read: if flowSignedIn() && request.auth.uid == userId;
+        allow create, update: if flowSignedIn() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['workspaceId', 'role', 'name', 'updatedAt'])
+          && request.resource.data.workspaceId == workspaceId
+          && request.resource.data.role in ['admin', 'member', 'viewer']
+          && request.resource.data.name is string && request.resource.data.name.size() <= 48;
+        allow delete: if flowSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    match /flowWorkspaces/{workspaceId} {
+      allow create: if flowSignedIn()
+        && flowValidWorkspace(request.resource.data)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberCount == 1;
+      allow get: if flowMember(workspaceId);
+      allow list: if false;
+      allow update: if flowAdmin(workspaceId)
+        && flowValidWorkspace(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'memberCount', 'updatedAt']);
+      allow delete: if false;
+
+      match /members/{userId} {
+        allow read: if flowMember(workspaceId);
+        allow create: if flowSignedIn() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['uid', 'role', 'inviteCode', 'joinedAt'])
+          && request.resource.data.uid == userId
+          && request.resource.data.role in ['admin', 'member', 'viewer']
+          && request.resource.data.joinedAt is timestamp
+          && (flowOwnerBootstrap(workspaceId, userId) || flowAcceptedInvite(workspaceId, userId));
+        allow update: if flowAdmin(workspaceId) && flowRole(request.resource.data.role)
+          && request.resource.data.uid == resource.data.uid;
+        allow delete: if flowSignedIn()
+          && userId != get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId
+          && (flowAdmin(workspaceId) || request.auth.uid == userId);
+      }
+      match /transactions/{transactionId} {
+        allow read: if flowMember(workspaceId);
+        allow create, update, delete: if false;
+      }
+      match /recurring/{recurringId} {
+        allow read: if flowMember(workspaceId);
+        allow create, update, delete: if false;
+      }
+      match /goals/{goalId} {
+        allow read: if flowMember(workspaceId);
+        allow create: if flowCanEdit(workspaceId) && flowValidSharedSummary(request.resource.data)
+          && request.resource.data.ownerId == get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId;
+        allow update: if flowCanEdit(workspaceId) && flowValidSharedSummary(request.resource.data)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.kind == resource.data.kind
+          && request.resource.data.target == resource.data.target
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saved', 'updatedAt']);
+        allow delete: if flowAdmin(workspaceId);
+      }
+    }
+
+    match /flowInvites/{code} {
+      allow get: if flowSignedIn();
+      allow list: if false;
+      allow create: if flowSignedIn() && flowValidInviteCode(code) && flowAdmin(request.resource.data.workspaceId)
+        && request.resource.data.keys().hasOnly(['workspaceId', 'role', 'createdBy', 'expiresAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.role in ['member', 'viewer']
+        && request.resource.data.expiresAt > request.time;
+      allow update: if flowSignedIn() && flowAdmin(resource.data.workspaceId)
+        && request.resource.data.workspaceId == resource.data.workspaceId
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if flowSignedIn() && flowAdmin(resource.data.workspaceId);
+    }
+  }
+}

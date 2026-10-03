@@ -1,0 +1,20 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+test('push payload cannot disclose a merchant, financial amount or foreign navigation URL', async () => {
+  const handlers = {}, shown = [], opened = [];
+  const self = { registration: { scope: 'https://example.com/Flow/', showNotification: async (title, options) => shown.push({ title, options }) }, addEventListener: (type, callback) => handlers[type] = callback, location: { origin: 'https://example.com' }, clients: { matchAll: async () => [], openWindow: async url => opened.push(url) } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../service-worker.js'), 'utf8'), { self, URL, Response, fetch: () => { throw new Error('unexpected fetch'); } });
+  let completion;
+  handlers.push({ data: { json: () => ({ title: 'PRIVATE', amount: 9999, url: 'https://evil.com' }) }, waitUntil: promise => completion = promise });
+  await completion;
+  assert.equal(shown.length, 1);
+  assert.equal(shown[0].title, 'Flōw');
+  assert(!JSON.stringify(shown).includes('PRIVATE'));
+  assert(!JSON.stringify(shown).includes('9999'));
+  handlers.notificationclick({ notification: { data: { url: 'https://evil.com' }, close() {} }, waitUntil: promise => completion = promise });
+  await completion;
+  assert.deepEqual(opened, ['https://example.com/Flow/index.html#dashboard']);
+});

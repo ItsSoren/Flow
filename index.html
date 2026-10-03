@@ -3,211 +3,220 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f5f4ef">
-  <title>Flow — ton argent, simplement</title>
+  <meta name="theme-color" content="#f5f5f2">
+  <meta name="description" content="Flōw aide à comprendre son argent, prévoir les prochaines dépenses et suivre ses projets simplement.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.workers.dev; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <title>Flōw — tes finances, en clair</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.2.13">
+  <link rel="stylesheet" href="styles.css?v=5.0.0">
 </head>
 <body>
-  <svg class="svg-sprite" aria-hidden="true">
-    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
-    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
-    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/></symbol>
-    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
-    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15z"/></symbol>
-    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
-    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 4v16m-6-6 6 6 6-6"/></symbol>
-    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4m-6 6 6-6 6 6"/></symbol>
-    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a3 3 0 0 1 3-3h12v4H6a3 3 0 0 0 0 6h15v6H5a2 2 0 0 1-2-2z"/><path d="M21 8H6a3 3 0 0 0 0 6h15z"/><circle cx="17" cy="11" r="1"/></symbol>
-    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 1.5 5.3L19 9l-5.5 1.7L12 16l-1.5-5.3L5 9l5.5-1.7zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
-    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z"/></symbol>
-    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .6-1.5 1-1.5 2M12 17h.01"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
-    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L19 9l-4-4zM13.5 6.5l4 4"/></symbol>
-    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6"/></symbol>
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/></symbol>
-    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/></symbol>
-    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 10h18"/></symbol>
-  </svg>
-
   <header class="topbar">
-    <a class="brand" href="#dashboard" data-go="dashboard" aria-label="Accueil Flow">
-      <img src="assets/logo-mark.svg" alt=""><span><b class="wordmark" aria-label="Flow"><span aria-hidden="true">Flōw</span></b><small>Finances tranquilles</small></span>
+    <a class="brand" href="#dashboard" data-go="dashboard" aria-label="Accueil Flōw">
+      <img src="assets/logo-mark.svg" alt="">
+      <span><b class="wordmark">Flōw</b><small>Ton argent, en clair</small></span>
     </a>
     <nav class="desktop-nav" aria-label="Navigation principale">
-      <button class="nav-item active" data-page="dashboard"><svg><use href="#i-home"/></svg>Accueil</button>
-      <button class="nav-item" data-page="transactions"><svg><use href="#i-list"/></svg>Opérations</button>
-      <button class="nav-item" data-page="recurring"><svg><use href="#i-repeat"/></svg>À venir</button>
-      <button class="nav-item" data-page="goals"><svg><use href="#i-target"/></svg>Projets</button>
-      <button class="nav-item" data-page="settings"><svg><use href="#i-settings"/></svg>Réglages</button>
+      <button class="nav-item active" data-page="dashboard"><svg><use href="assets/icons.svg#i-home"/></svg>Vue d’ensemble</button>
+      <button class="nav-item" data-page="transactions"><svg><use href="assets/icons.svg#i-list"/></svg>Opérations</button>
+      <button class="nav-item" data-page="recurring"><svg><use href="assets/icons.svg#i-calendar"/></svg>À venir</button>
+      <button class="nav-item" data-page="goals"><svg><use href="assets/icons.svg#i-target"/></svg>Projets</button>
+      <button class="nav-item" data-page="settings"><svg><use href="assets/icons.svg#i-settings"/></svg>Réglages</button>
     </nav>
     <div class="top-actions">
-      <label class="account-picker"><span>Compte</span><select id="activeAccountSelect" aria-label="Compte actif"></select></label>
-      <button class="cloud-account-button" id="cloudAccountButton" type="button" aria-label="Synchroniser Flow" title="Compte et synchronisation"><svg><use href="#i-wallet"/></svg><span id="cloudAccountLabel">Connexion</span></button>
-      <button class="icon-button help-button" data-open="help" aria-label="Ouvrir l’aide" title="Rechercher dans l’aide"><svg><use href="#i-help"/></svg></button>
-      <button class="icon-button settings-access" data-go="settings" aria-label="Ouvrir les réglages" title="Réglages"><svg><use href="#i-settings"/></svg></button>
-      <button class="icon-button" id="themeToggle" aria-label="Changer de thème"><svg><use href="#i-moon"/></svg></button>
-      <button class="button primary compact" data-open="transaction"><svg><use href="#i-plus"/></svg><span>Ajouter</span></button>
+      <label class="account-picker"><span>Compte affiché</span><select id="activeAccountSelect" aria-label="Compte affiché"></select></label>
+      <button class="icon-button notification-access" data-open="notifications" aria-label="Notifications" title="Notifications"><svg><use href="assets/icons.svg#i-bell"/></svg><span class="notification-dot" id="notificationUnreadCount" aria-label="Notifications non lues">0</span></button>
+      <button class="cloud-account-button" id="cloudAccountButton" type="button" aria-label="Compte et synchronisation" title="Synchroniser entre appareils"><svg><use href="assets/icons.svg#i-cloud"/></svg><span id="cloudAccountLabel">Connexion</span></button>
+      <button class="icon-button help-button" data-open="help" aria-label="Ouvrir le wiki" title="Rechercher dans le wiki"><svg><use href="assets/icons.svg#i-help"/></svg></button>
+      <button class="icon-button" data-go="settings" aria-label="Ouvrir les réglages" title="Réglages"><svg><use href="assets/icons.svg#i-settings"/></svg></button>
+      <button class="icon-button" id="themeToggle" aria-label="Changer de thème" title="Changer de thème"><svg><use href="assets/icons.svg#i-moon"/></svg></button>
+      <button class="button primary add-button" data-open="transaction"><svg><use href="assets/icons.svg#i-plus"/></svg><span>Ajouter</span></button>
     </div>
   </header>
 
   <main class="app-shell">
     <section class="page active" id="page-dashboard">
       <div class="page-intro dashboard-intro">
-        <div><span class="eyebrow" id="greeting">Bonjour</span><h1>Ton argent, en clair.</h1><p>Ce qui compte aujourd’hui, sans tableau compliqué.</p></div>
-        <div class="month-switcher"><button id="prevMonth" aria-label="Mois précédent">‹</button><button id="monthLabel"><svg><use href="#i-calendar"/></svg><span></span></button><button id="nextMonth" aria-label="Mois suivant">›</button></div>
+        <div><span class="eyebrow" id="greeting">Bonjour</span><h1>Une vue claire, tout de suite.</h1><p>Ton solde, tes prochaines charges et ce que tu peux dépenser.</p></div>
+        <div class="month-switcher"><button id="prevMonth" aria-label="Mois précédent">‹</button><button id="monthLabel"><svg><use href="assets/icons.svg#i-calendar"/></svg><span></span></button><button id="nextMonth" aria-label="Mois suivant">›</button></div>
       </div>
 
       <div class="dashboard-grid">
-        <article class="hero-card">
-          <div class="hero-top"><div><span class="card-kicker">Disponible sur ce compte</span><strong id="accountBalance">0,00 €</strong></div><span class="account-chip" id="heroAccountName">Principal</span></div>
-          <div class="hero-message"><svg><use href="#i-spark"/></svg><span id="moneyMessage">Ajoute tes premières opérations pour voir ton rythme.</span></div>
+        <article class="hero-card spendable-card">
+          <div class="hero-top"><div><span class="card-kicker">À dépenser jusqu’au salaire</span><strong id="spendableUntilSalary">0,00 €</strong><span class="hero-subline">Prochain salaire · <b id="nextPayday">À définir</b></span></div><span class="account-chip" id="heroAccountName">Compte principal</span></div>
+          <div class="hero-message"><svg><use href="assets/icons.svg#i-spark"/></svg><span id="moneyMessage">Ajoute ton solde et tes prochaines opérations pour commencer.</span></div>
           <div class="hero-actions">
-            <button class="quick expense" data-open="transaction" data-type="expense"><span><svg><use href="#i-arrow-down"/></svg></span><b>Dépense</b><small>J’ai payé</small></button>
-            <button class="quick income" data-open="transaction" data-type="income"><span><svg><use href="#i-arrow-up"/></svg></span><b>Revenu</b><small>J’ai reçu</small></button>
-            <button class="quick saving" data-go="goals"><span><svg><use href="#i-target"/></svg></span><b>Épargner</b><small>Vers un projet</small></button>
+            <button class="quick expense" data-open="transaction" data-type="expense"><span><svg><use href="assets/icons.svg#i-arrow-down"/></svg></span><b>Dépense</b><small>Ajouter un achat</small></button>
+            <button class="quick income" data-open="transaction" data-type="income"><span><svg><use href="assets/icons.svg#i-arrow-up"/></svg></span><b>Revenu</b><small>Ajouter une entrée</small></button>
+            <button class="quick transfer" data-open="transaction" data-type="transfer"><span><svg><use href="assets/icons.svg#i-transfer"/></svg></span><b>Transfert</b><small>Entre tes comptes</small></button>
           </div>
         </article>
 
         <article class="breathing-card">
-          <div class="breathing-head"><span class="card-kicker">Reste à vivre ce mois</span><span id="budgetStatus" class="status calm">Serein</span></div>
-          <strong id="remainingMonth">0,00 €</strong>
-          <p id="remainingCaption">Après les dépenses déjà saisies et celles à venir.</p>
-          <div class="progress-track"><span id="monthProgress"></span></div>
-          <div class="breathing-meta"><span><b id="spentMonth">0 €</b> dépensés</span><span><b id="plannedMonth">0 €</b> à venir</span></div>
-        </article>
-
-        <article class="card pulse-card">
-          <div class="section-heading"><div><span class="card-kicker">Le mois en un coup d’œil</span><h2>Entrées & sorties</h2></div></div>
-          <div class="pulse-numbers"><div class="positive"><span>Entrées</span><b id="incomeMonth">0 €</b></div><div class="negative"><span>Sorties</span><b id="expenseMonth">0 €</b></div></div>
-          <div class="mini-bars" id="flowChart" aria-label="Flux du mois"></div>
+          <div class="breathing-head"><span class="card-kicker">Solde réel du compte</span><span id="budgetStatus" class="status calm">À jour</span></div>
+          <strong id="accountBalance">0,00 €</strong>
+          <p id="remainingCaption">Après les opérations déjà enregistrées.</p>
+          <div class="balance-foot"><span class="balance-glyph"><svg><use href="assets/icons.svg#i-wallet"/></svg></span><span id="heroAccountNameMirror">Compte sélectionné</span><button class="text-button" data-page="settings">Gérer mes comptes <svg><use href="assets/icons.svg#i-chevron"/></svg></button></div>
         </article>
 
         <article class="card upcoming-card">
-          <div class="section-heading"><div><span class="card-kicker">Prochainement</span><h2>Ce qui va tomber</h2></div><button class="text-button" data-go="recurring">Tout voir <svg><use href="#i-chevron"/></svg></button></div>
+          <div class="section-heading"><div><span class="card-kicker">Prochainement</span><h2>À venir</h2></div><button class="text-button" data-page="recurring">Tout voir <svg><use href="assets/icons.svg#i-chevron"/></svg></button></div>
           <div id="upcomingList" class="compact-list"></div>
         </article>
 
-        <article class="card categories-card">
-          <div class="section-heading"><div><span class="card-kicker">Où part ton argent</span><h2>Top catégories</h2></div></div>
-          <div id="categoryList" class="category-list"></div>
-        </article>
+        <details class="card dashboard-detail recent-card">
+          <summary class="detail-summary"><span><span class="card-kicker">Tout récent</span><strong>Dernières opérations</strong></span><span class="detail-toggle"><svg><use href="assets/icons.svg#i-chevron"/></svg></span></summary>
+          <div class="detail-content"><div class="detail-heading"><span>Opérations récentes</span><button class="text-button" data-page="transactions">Historique <svg><use href="assets/icons.svg#i-chevron"/></svg></button></div><div id="recentTransactions" class="transaction-list"></div></div>
+        </details>
 
-        <article class="card recent-card">
-          <div class="section-heading"><div><span class="card-kicker">Derniers mouvements</span><h2>Opérations récentes</h2></div><button class="text-button" data-go="transactions">Tout voir <svg><use href="#i-chevron"/></svg></button></div>
-          <div id="recentTransactions" class="transaction-list"></div>
-        </article>
+        <details class="card dashboard-detail insights-card" id="dashboardInsights">
+          <summary class="detail-summary"><span><span class="card-kicker">Si tu veux aller plus loin</span><strong>Calcul, habitudes et tendances</strong></span><span class="detail-toggle"><svg><use href="assets/icons.svg#i-chevron"/></svg></span></summary>
+          <div class="detail-content insights-grid">
+            <section class="insight-card"><div class="section-heading"><div><span class="card-kicker">Le calcul, sans surprise</span><h2>Ton disponible</h2></div></div><div id="spendableBreakdown" class="breakdown-list"><div class="breakdown-row"><span>Solde du compte</span><b>—</b></div><div class="breakdown-row"><span>Charges avant le salaire</span><b>—</b></div><div class="breakdown-row"><span>Épargne prévue</span><b>—</b></div></div><p class="privacy-hint">Les réservations sont un repère dans Flōw. Elles ne déplacent pas ton argent à la banque.</p></section>
+            <section class="insight-card"><div class="section-heading"><div><span class="card-kicker">Ce mois-ci</span><h2>Entrées et sorties</h2></div><div class="month-switcher compact-month"><button id="prevMonthMini" aria-label="Mois précédent">‹</button><button class="month-label-mini" id="monthLabelMini" aria-live="polite"></button><button id="nextMonthMini" aria-label="Mois suivant">›</button></div></div><div class="pulse-numbers"><div class="positive"><span>Revenus</span><b id="incomeMonth">0 €</b></div><div class="negative"><span>Dépenses</span><b id="expenseMonth">0 €</b></div></div><div class="mini-bars" id="flowChart" aria-label="Graphique des entrées et sorties du mois"></div></section>
+            <section class="insight-card"><div class="section-heading"><div><span class="card-kicker">Tes habitudes</span><h2>Où va ton argent</h2></div></div><div id="categoryList" class="category-list"></div></section>
+          </div>
+        </details>
+
+        <details class="card dashboard-detail reservations-card" id="reservationDetails">
+          <summary class="detail-summary"><span><span class="card-kicker">Épargne choisie</span><strong>Réservations de projets · <span class="reservation-count"><svg><use href="assets/icons.svg#i-lock"/></svg><b id="activeReservations">0</b></span></strong></span><span class="detail-toggle"><svg><use href="assets/icons.svg#i-chevron"/></svg></span></summary>
+          <div class="detail-content"><div class="detail-heading"><span>Sommes réservées</span><button class="text-button" data-page="goals">Gérer mes projets <svg><use href="assets/icons.svg#i-chevron"/></svg></button></div><div id="reservationList" class="reservation-list"></div></div>
+        </details>
       </div>
     </section>
 
     <section class="page" id="page-transactions">
-      <div class="page-intro"><div><span class="eyebrow">Historique</span><h1>Tes opérations</h1><p>Retrouve, filtre et corrige facilement chaque mouvement.</p></div><button class="button primary" data-open="transaction"><svg><use href="#i-plus"/></svg>Nouvelle opération</button></div>
-      <div class="toolbar card"><div class="segmented" id="transactionFilter"><button class="active" data-filter="all">Toutes</button><button data-filter="expense">Dépenses</button><button data-filter="income">Revenus</button></div><input id="transactionSearch" type="search" placeholder="Rechercher une opération…"></div>
+      <div class="page-intro"><div><span class="eyebrow">Historique</span><h1>Opérations</h1><p>Retrouve, filtre et corrige chaque mouvement.</p></div><button class="button primary" data-open="transaction"><svg><use href="assets/icons.svg#i-plus"/></svg>Nouvelle opération</button></div>
+      <div class="toolbar card"><div class="segmented" id="transactionFilter"><button class="active" data-filter="all">Toutes</button><button data-filter="expense">Dépenses</button><button data-filter="income">Revenus</button></div><label class="search-field"><svg><use href="assets/icons.svg#i-search"/></svg><input id="transactionSearch" type="search" placeholder="Rechercher une opération…"></label></div>
       <div class="card list-card"><div id="allTransactions" class="transaction-list"></div></div>
     </section>
 
     <section class="page" id="page-recurring">
-      <div class="page-intro"><div><span class="eyebrow">Prévisions</span><h1>Ce qui arrive bientôt</h1><p>Salaires, abonnements et factures, sans mauvaise surprise.</p></div><button class="button primary" data-open="recurring"><svg><use href="#i-plus"/></svg>Ajouter un récurrent</button></div>
+      <div class="page-intro"><div><span class="eyebrow">Prévisions</span><h1>Ce qui arrive</h1><p>Salaires, abonnements et factures, pour anticiper sereinement.</p></div><button class="button primary" data-open="recurring"><svg><use href="assets/icons.svg#i-plus"/></svg>Ajouter un récurrent</button></div>
       <div class="summary-strip"><div><span>Revenus prévus</span><b class="positive" id="plannedIncome">0 €</b></div><div><span>Dépenses prévues</span><b class="negative" id="plannedExpense">0 €</b></div><div><span>Impact prévu</span><b id="plannedNet">0 €</b></div></div>
       <div class="card list-card"><div id="recurringList" class="recurring-list"></div></div>
     </section>
 
     <section class="page" id="page-goals">
-      <div class="page-intro"><div><span class="eyebrow">Projets</span><h1>Ce que tu construis</h1><p>Des objectifs motivants, pas une pression de plus.</p></div><button class="button primary" data-open="goal"><svg><use href="#i-plus"/></svg>Nouveau projet</button></div>
+      <div class="page-intro"><div><span class="eyebrow">Projets</span><h1>Ce que tu prépares</h1><p>Choisis un objectif, son rythme et la part que tu veux réserver.</p></div><button class="button primary" data-open="goal"><svg><use href="assets/icons.svg#i-plus"/></svg>Nouveau projet</button></div>
+      <div class="reservation-policy" id="reservationPolicy"><div class="policy-mark"><svg><use href="assets/icons.svg#i-shield"/></svg></div><div><b>Comment fonctionne une réservation ?</b><p>Flōw met une somme de côté dans ton calcul du disponible. Tu peux la refuser pendant 5 minutes ou la libérer plus tard. Aucun virement bancaire n’est effectué.</p></div></div>
       <div id="goalsList" class="goals-grid"></div>
     </section>
 
-    <section class="page" id="page-settings">
-      <div class="page-intro"><div><span class="eyebrow">Préférences</span><h1>Réglages</h1><p>Personnalise Flow et garde une copie de tes données.</p></div></div>
+    <section class="page settings-page" id="page-settings">
+      <div class="page-intro"><div><span class="eyebrow">À ton rythme</span><h1>Réglages</h1><p>Un espace simple pour gérer ton compte, tes préférences et tes données.</p></div></div>
+      <nav class="settings-nav" aria-label="Rubriques des réglages"><a href="#settings-general">Général</a><a href="#settings-accounts">Comptes</a><a href="#settings-budget">Disponible</a><a href="#settings-notifications">Notifications</a><a href="#settings-security">Sécurité</a><a href="#settings-sharing">Partage</a><a href="#settings-backup">Sauvegarde</a><a href="#settings-help">Aide</a><a href="#settings-about">Confidentialité</a></nav>
       <div class="settings-grid">
-        <article class="card settings-card cloud-settings-card"><div class="settings-icon"><svg><use href="#i-wallet"/></svg></div><div><h2>Synchronisation</h2><p id="cloudStatus">Tes données restent sur cet appareil. Connecte-toi pour les retrouver sur PC et mobile.</p><div class="cloud-settings-actions"><button class="button secondary" id="cloudSignIn" type="button">Se connecter</button><button class="button ghost hidden" id="cloudSignOut" type="button">Se déconnecter</button></div></div></article>
-        <article class="card settings-card"><div class="settings-icon"><svg><use href="#i-wallet"/></svg></div><div><h2>Mes comptes</h2><p>Ajoute un compte courant ou un livret.</p><div id="accountsList" class="settings-list"></div><button class="button secondary" data-open="account"><svg><use href="#i-plus"/></svg>Ajouter un compte</button></div></article>
-        <article class="card settings-card"><div class="settings-icon"><svg><use href="#i-moon"/></svg></div><div><h2>Apparence</h2><p>Choisis séparément la luminosité et l’univers coloré.</p><span class="option-label">Mode</span><div class="theme-options" id="themeModeOptions"><button data-mode="auto"><i class="theme-dot auto"></i>Auto</button><button data-mode="light"><i class="theme-dot light"></i>Clair</button><button data-mode="dark"><i class="theme-dot dark"></i>Sombre</button></div><span class="option-label">Palette</span><div class="theme-options" id="paletteOptions"><button data-palette="flow"><i class="theme-dot flow"></i>Flow</button><button data-palette="neon-sakura"><i class="theme-dot sakura"></i>Neon Sakura</button><button data-palette="ocean-peace"><i class="theme-dot ocean"></i>Ocean Peace</button></div></div></article>
-        <article class="card settings-card backup-card"><div class="settings-icon"><svg><use href="#i-download"/></svg></div><div><h2>Sauvegarde & transfert</h2><p>Utilise un fichier ou copie un code autonome vers un autre appareil.</p><div class="button-row"><button class="button secondary" id="exportData"><svg><use href="#i-download"/></svg>Exporter le fichier</button><label class="button secondary file-button"><svg><use href="#i-upload"/></svg>Importer un fichier<input id="importData" type="file" accept="application/json,.json"></label></div><div class="transfer-box"><span class="option-label">Transfert par code</span><div class="button-row"><button class="button secondary" id="generateTransferCode">Générer le code</button><button class="button secondary hidden" id="copyTransferCode">Copier</button></div><textarea class="transfer-code hidden" id="transferCodeOut" readonly aria-label="Code de transfert généré"></textarea><label class="transfer-label">Importer un code<textarea class="transfer-code" id="transferCodeIn" placeholder="Colle ici le code Flow reçu…"></textarea></label><button class="button primary" id="importTransferCode">Lire et importer le code</button></div></div></article>
-        <article class="card settings-card"><div class="settings-icon"><svg><use href="#i-help"/></svg></div><div><h2>Centre d’aide</h2><p>Recherche une fonction dans le wiki ou relance le guide complet.</p><div class="button-row"><button class="button secondary" data-open="help"><svg><use href="#i-search"/></svg>Ouvrir le wiki</button><button class="button secondary" id="replayTutorial">Revoir le mini guide</button></div></div></article>
-        <article class="card settings-card danger-zone"><div class="settings-icon"><svg><use href="#i-trash"/></svg></div><div><h2>Repartir de zéro</h2><p>Supprime les données de cette version de Flow sur cet appareil.</p><button class="button danger" id="clearData">Effacer mes données</button></div></article>
+        <section class="card settings-card cloud-settings-card" id="settings-security"><div class="settings-icon"><svg><use href="assets/icons.svg#i-cloud"/></svg></div><div><span class="card-kicker">Sécurité et synchronisation</span><h2>Retrouver Flōw partout</h2><p id="cloudStatus">Tes données restent sur cet appareil. Connecte-toi pour les retrouver sur PC et mobile.</p><p class="field-help">L’action d’effacement concerne uniquement les données personnelles Flōw. Elle ne supprime pas ton identifiant partagé ni tes espaces collaboratifs.</p><div class="cloud-settings-actions"><button class="button secondary" id="cloudSignIn" type="button">Se connecter</button><button class="button ghost hidden" id="cloudSignOut" type="button">Se déconnecter</button><button class="button ghost hidden" id="cloudVerifyEmail" type="button">Vérifier mon e-mail</button><button class="button danger hidden" id="cloudDeleteAccount" type="button">Effacer mes données Flōw</button></div></div></section>
+
+        <section class="card settings-card sharing-card" id="settings-sharing"><div class="settings-icon"><svg><use href="assets/icons.svg#i-share"/></svg></div><div><span class="card-kicker">Collaboration choisie</span><h2>Partager un projet ou un budget</h2><p>Partage seulement les éléments que tu sélectionnes. Tes comptes personnels et ton historique ne sont pas partagés.</p><div id="cloudSharingMount"></div></div></section>
+
+        <section class="card settings-card" id="settings-accounts"><div class="settings-icon"><svg><use href="assets/icons.svg#i-wallet"/></svg></div><div><span class="card-kicker">Tes comptes</span><h2>Courant, épargne et autres</h2><p>Garde tes soldes distincts et choisis ceux qui comptent pour ton disponible.</p><div id="accountsList" class="settings-list"></div><button class="button secondary" data-open="account"><svg><use href="assets/icons.svg#i-plus"/></svg>Ajouter un compte</button></div></section>
+
+        <section class="card settings-card" id="settings-budget"><div class="settings-icon"><svg><use href="assets/icons.svg#i-calendar"/></svg></div><div><span class="card-kicker">Disponible</span><h2>Prévoir jusqu’au salaire</h2><p>Ces repères rendent le calcul plus juste. Ils ne changent aucun solde bancaire.</p><div class="settings-form-grid"><label>Jour habituel de paie<input id="paycheckDay" type="number" min="1" max="31" inputmode="numeric" placeholder="Ex. 28"></label><label>Montant à garder en sécurité<input id="safetyBuffer" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0 €"></label></div><p class="field-help">Les récurrents confirmés avant la paie et les réservations actives sont déduits du disponible.</p></div></section>
+
+        <section class="card settings-card" id="settings-notifications"><div class="settings-icon"><svg><use href="assets/icons.svg#i-bell"/></svg></div><div><span class="card-kicker">Rappels utiles</span><h2>Notifications</h2><p>Choisis les rappels que tu veux voir. Les notifications système dépendent des autorisations de ton appareil.</p><div id="pushSettingsMount" class="push-settings"></div><div class="notification-controls"><button class="button ghost" id="notificationReadAll" type="button">Tout marquer comme lu</button><button class="button ghost" id="addReminderButton" type="button">Ajouter un rappel</button></div><div class="notification-filters" id="notificationFilters"><button class="active" data-notification-filter="all">Toutes</button><button data-notification-filter="finance">Finances</button><button data-notification-filter="reminder">Mes rappels</button></div><div id="notificationList" class="notification-list"></div></div></section>
+
+        <section class="card settings-card" id="settings-general"><div class="settings-icon"><svg><use href="assets/icons.svg#i-sliders"/></svg></div><div><span class="card-kicker">Confort d’utilisation</span><h2>Apparence et affichage</h2><p>Des couleurs claires et un espace adapté à ton écran.</p><span class="option-label">Thème</span><div class="theme-options" id="themeModeOptions"><button data-mode="auto"><i class="theme-dot auto"></i>Auto</button><button data-mode="light"><i class="theme-dot light"></i>Clair</button><button data-mode="dark"><i class="theme-dot dark"></i>Sombre</button></div><span class="option-label">Ambiance</span><div class="theme-options" id="paletteOptions"><button data-palette="flow"><i class="theme-dot flow"></i>Flow</button><button data-palette="neon-sakura"><i class="theme-dot sakura"></i>Neon Sakura</button><button data-palette="ocean-peace"><i class="theme-dot ocean"></i>Ocean Peace</button></div><div class="settings-form-grid"><label>Densité sur ordinateur<select id="densitySelect"><option value="comfortable">Confortable</option><option value="compact">Compacte</option><option value="wide">Large</option></select></label><label>Animations<select id="motionSelect"><option value="system">Selon l’appareil</option><option value="reduced">Réduites</option></select></label></div></div></section>
+
+        <section class="card settings-card import-card" id="settings-import"><div class="settings-icon"><svg><use href="assets/icons.svg#i-file"/></svg></div><div><span class="card-kicker">Importer un relevé</span><h2>Ajouter des opérations depuis un fichier</h2><p>Flōw peut lire un CSV de banque et te laisser vérifier les lignes avant l’import. Le fichier est traité dans ton navigateur.</p><div class="bank-import-form"><label class="button secondary file-button"><svg><use href="assets/icons.svg#i-upload"/></svg>Choisir un relevé CSV<input id="bankImportFile" type="file" accept=".csv,text/csv"></label><label>Importer dans<select id="bankImportAccount"></select></label><div id="bankImportMapping" class="bank-import-mapping"></div><label class="bank-balance-field">Solde réel indiqué par la banque<input id="bankImportBalance" type="number" step="0.01" inputmode="decimal" placeholder="Ex. 1240,50"></label><button class="button secondary hidden" id="bankImportApplyBalance" type="button">Mettre à jour le solde de départ</button><div id="bankImportPreview" class="bank-import-preview"></div><p id="bankImportStatus" role="status" aria-live="polite"></p><button class="button primary hidden" id="bankImportConfirm" type="button" disabled>Importer les opérations choisies</button></div></div></section>
+
+        <section class="card settings-card backup-card" id="settings-backup"><div class="settings-icon"><svg><use href="assets/icons.svg#i-download"/></svg></div><div><span class="card-kicker">Fichier ou code</span><h2>Sauvegarder et transférer</h2><p>Retrouve tes données sur un autre appareil avec une sauvegarde ou un code à copier-coller.</p><div class="button-row"><button class="button secondary" id="exportData"><svg><use href="assets/icons.svg#i-download"/></svg>Exporter le fichier</button><label class="button secondary file-button"><svg><use href="assets/icons.svg#i-upload"/></svg>Importer un fichier<input id="importData" type="file" accept="application/json,.json"></label></div><div class="transfer-box"><span class="option-label">Transfert par code</span><div class="button-row"><button class="button secondary" id="generateTransferCode">Générer un code</button><button class="button secondary hidden" id="copyTransferCode">Copier</button></div><textarea class="transfer-code hidden" id="transferCodeOut" readonly aria-label="Code de transfert généré"></textarea><label class="transfer-label">Importer un code<textarea class="transfer-code" id="transferCodeIn" placeholder="Colle ici le code reçu…"></textarea></label><button class="button primary" id="importTransferCode">Lire le code et importer</button></div></div></section>
+
+        <section class="card settings-card" id="settings-help"><div class="settings-icon"><svg><use href="assets/icons.svg#i-help"/></svg></div><div><span class="card-kicker">Guides et réponses</span><h2>Wiki et mini-guide</h2><p>Recherche à quoi sert une fonction ou relance le guide d’accueil.</p><div class="button-row"><button class="button secondary" data-open="help"><svg><use href="assets/icons.svg#i-search"/></svg>Ouvrir le wiki</button><button class="button secondary" id="replayTutorial">Revoir le mini-guide</button></div></div></section>
+
+        <section class="card settings-card legal-card" id="settings-about"><div class="settings-icon"><svg><use href="assets/icons.svg#i-shield"/></svg></div><div><span class="card-kicker">À propos</span><h2>Confiance et crédits</h2><p>Flōw est un outil de suivi personnel. Il n’effectue aucun paiement ni transfert bancaire.</p><div class="button-row"><a class="button secondary" href="privacy.html">Politique de confidentialité</a><a class="button secondary" href="credits.html">Crédits</a></div><p class="field-help">Créé par Soren Querrec · Avec les remerciements à Hana_is</p></div></section>
+
+        <section class="card settings-card danger-zone"><div class="settings-icon"><svg><use href="assets/icons.svg#i-trash"/></svg></div><div><span class="card-kicker">Données locales</span><h2>Effacer les données de cet appareil</h2><p>Cette action supprime la copie enregistrée sur cet appareil.</p><button class="button danger" id="clearData">Effacer mes données</button></div></section>
       </div>
     </section>
   </main>
 
   <nav class="mobile-nav" aria-label="Navigation mobile">
-    <button class="nav-item active" data-page="dashboard"><svg><use href="#i-home"/></svg><span>Accueil</span></button>
-    <button class="nav-item" data-page="transactions"><svg><use href="#i-list"/></svg><span>Opérations</span></button>
-    <button class="mobile-add" data-open="transaction" aria-label="Ajouter"><svg><use href="#i-plus"/></svg></button>
-    <button class="nav-item" data-page="recurring"><svg><use href="#i-repeat"/></svg><span>À venir</span></button>
-    <button class="nav-item" data-page="goals"><svg><use href="#i-target"/></svg><span>Projets</span></button>
+    <button class="nav-item active" data-page="dashboard"><svg><use href="assets/icons.svg#i-home"/></svg><span>Accueil</span></button>
+    <button class="nav-item" data-page="transactions"><svg><use href="assets/icons.svg#i-list"/></svg><span>Opérations</span></button>
+    <button class="mobile-add" data-open="transaction" aria-label="Ajouter une opération"><svg><use href="assets/icons.svg#i-plus"/></svg></button>
+    <button class="nav-item" data-page="recurring"><svg><use href="assets/icons.svg#i-calendar"/></svg><span>À venir</span></button>
+    <button class="nav-item" data-page="goals"><svg><use href="assets/icons.svg#i-target"/></svg><span>Projets</span></button>
   </nav>
 
   <div class="modal-backdrop hidden" id="transactionModal" role="dialog" aria-modal="true" aria-labelledby="transactionTitle">
-    <form class="modal" id="transactionForm"><div class="modal-head"><div><span class="eyebrow">Mouvement</span><h2 id="transactionTitle">Nouvelle opération</h2></div><button type="button" class="close" data-close>×</button></div>
-      <div class="segmented wide" id="transactionType"><button type="button" class="active" data-value="expense">J’ai payé</button><button type="button" data-value="income">J’ai reçu</button></div>
-      <label class="amount-field"><span>Montant</span><div><input id="txAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0"><b>€</b></div></label>
-      <div class="form-grid"><label>Libellé<input id="txLabel" required placeholder="Ex. Courses"></label><label>Date<input id="txDate" type="date" required></label><label>Catégorie<select id="txCategory"></select></label><label>Compte<select id="txAccount"></select></label></div>
-      <input id="txId" type="hidden"><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Enregistrer</button></div>
+    <form class="modal" id="transactionForm"><div class="modal-head"><div><span class="eyebrow">Mouvement</span><h2 id="transactionTitle">Nouvelle opération</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <div class="segmented wide" id="transactionType"><button type="button" class="active" data-value="expense">Dépense</button><button type="button" data-value="income">Revenu</button><button type="button" data-value="transfer">Transfert</button></div>
+      <label class="amount-field"><span>Montant</span><div><input id="txAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" required><b>€</b></div></label>
+      <div class="form-grid"><label>Libellé<input id="txLabel" required placeholder="Ex. Courses"></label><label>Date<input id="txDate" type="date" required></label><label>Catégorie<select id="txCategory"></select></label><label>Compte de départ<select id="txAccount"></select></label><label class="transfer-target">Vers le compte<select id="txTargetAccount"></select></label><label class="transaction-note">Note (facultatif)<input id="txNote" maxlength="240" placeholder="Un détail utile"></label></div>
+      <label class="check-row"><input id="txFavorite" type="checkbox"><span>Garder cette opération en favori</span></label><input id="txSalary" type="hidden"><input id="txId" type="hidden">
+      <div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Enregistrer</button></div>
     </form>
   </div>
 
   <div class="modal-backdrop hidden" id="recurringModal" role="dialog" aria-modal="true" aria-labelledby="recurringTitle">
-    <form class="modal" id="recurringForm"><div class="modal-head"><div><span class="eyebrow">Prévision</span><h2 id="recurringTitle">Nouveau récurrent</h2></div><button type="button" class="close" data-close>×</button></div>
+    <form class="modal" id="recurringForm"><div class="modal-head"><div><span class="eyebrow">Prévision</span><h2 id="recurringTitle">Ajouter un récurrent</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
       <div class="segmented wide" id="recurringType"><button type="button" class="active" data-value="expense">Dépense</button><button type="button" data-value="income">Revenu</button></div>
-      <div class="form-grid"><label>Libellé<input id="recLabel" required placeholder="Ex. Netflix"></label><label>Montant<input id="recAmount" type="number" min="0.01" step="0.01" required></label><label>Prochaine date<input id="recDate" type="date" required></label><label>Rythme<select id="recFrequency"><option value="monthly">Chaque mois</option><option value="weekly">Chaque semaine</option><option value="yearly">Chaque année</option><option value="once">Une seule fois</option></select></label><label>Catégorie<select id="recCategory"></select></label><label>Compte<select id="recAccount"></select></label></div>
+      <div class="form-grid"><label>Libellé<input id="recLabel" required placeholder="Ex. Salaire, loyer"></label><label>Montant<input id="recAmount" type="number" min="0.01" step="0.01" required></label><label>Prochaine date<input id="recDate" type="date" required></label><label>Rythme<select id="recFrequency"><option value="monthly">Chaque mois</option><option value="weekly">Chaque semaine</option><option value="yearly">Chaque année</option><option value="once">Une seule fois</option></select></label><label>Catégorie<select id="recCategory"></select></label><label>Compte<select id="recAccount"></select></label></div>
       <input id="recId" type="hidden"><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Enregistrer</button></div>
     </form>
   </div>
 
   <div class="modal-backdrop hidden" id="goalModal" role="dialog" aria-modal="true" aria-labelledby="goalTitle">
-    <form class="modal" id="goalForm"><div class="modal-head"><div><span class="eyebrow">Projet</span><h2 id="goalTitle">Nouveau projet</h2></div><button type="button" class="close" data-close>×</button></div>
-      <div class="form-grid"><label>Nom<input id="goalName" required placeholder="Ex. Week-end à Rome"></label><label>Emoji<input id="goalEmoji" maxlength="2" placeholder="🌿"></label><label>Objectif<input id="goalTarget" type="number" min="1" step="1" required></label><label>Déjà mis de côté<input id="goalSaved" type="number" min="0" step="1" value="0"></label><label>Date souhaitée<input id="goalDate" type="date"></label><label>Couleur<select id="goalColor"><option value="sage">Sauge</option><option value="peach">Pêche</option><option value="lilac">Lilas</option><option value="blue">Bleu</option></select></label></div>
-      <input id="goalId" type="hidden"><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Créer le projet</button></div>
+    <form class="modal" id="goalForm"><div class="modal-head"><div><span class="eyebrow">Projet</span><h2 id="goalTitle">Nouveau projet</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <div class="form-grid"><label>Nom du projet<input id="goalName" required placeholder="Ex. Week-end à Rome"></label><label>Icône ou initiales<input id="goalEmoji" maxlength="4" placeholder="Voyage"></label><label>Montant à atteindre<input id="goalTarget" type="number" min="1" step="1" required></label><label>Déjà mis de côté<input id="goalSaved" type="number" min="0" step="1" value="0"></label><label>Date souhaitée<input id="goalDate" type="date"></label><label>Couleur<select id="goalColor"><option value="sage">Sauge</option><option value="peach">Pêche</option><option value="lilac">Lilas</option><option value="blue">Bleu</option></select></label><label>Réserver automatiquement<select id="goalAutoMode"><option value="none">Aucune réservation</option><option value="fixed">Montant fixe par salaire</option><option value="percent">Pourcentage du salaire</option></select></label><label>Montant ou pourcentage<input id="goalAutoValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ex. 50 ou 10"></label><label>Compte concerné<select id="goalAccount"></select></label></div>
+      <p class="field-help">Une réservation réduit le montant disponible affiché dans Flōw. Elle ne déplace pas l’argent dans ta banque.</p><input id="goalId" type="hidden"><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Enregistrer le projet</button></div>
     </form>
   </div>
 
   <div class="modal-backdrop hidden" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
-    <form class="modal small" id="accountForm"><div class="modal-head"><div><span class="eyebrow">Compte</span><h2 id="accountTitle">Ajouter un compte</h2></div><button type="button" class="close" data-close>×</button></div>
-      <label>Nom du compte<input id="accountName" required placeholder="Ex. Compte courant"></label><label>Solde actuel<input id="accountInitial" type="number" step="0.01" value="0"></label><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Ajouter</button></div>
+    <form class="modal small" id="accountForm"><div class="modal-head"><div><span class="eyebrow">Organisation</span><h2 id="accountTitle">Ajouter un compte</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <label>Nom du compte<input id="accountName" required placeholder="Ex. Compte courant"></label><label>Type de compte<select id="accountType"><option value="current">Compte courant</option><option value="savings">Épargne</option><option value="cash">Espèces</option><option value="other">Autre</option></select></label><label>Solde actuel<input id="accountInitial" type="number" step="0.01" inputmode="decimal" value="0"></label><label class="check-row"><input id="accountInclude" type="checkbox" checked><span>Inclure dans le disponible global</span></label><input id="accountId" type="hidden"><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Enregistrer le compte</button></div>
     </form>
+  </div>
+
+  <div class="modal-backdrop hidden" id="reminderModal" role="dialog" aria-modal="true" aria-labelledby="reminderTitleLabel">
+    <form class="modal small" id="reminderForm"><div class="modal-head"><div><span class="eyebrow">Rappel personnel</span><h2 id="reminderTitleLabel">Ajouter un rappel</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <label>Rappel<input id="reminderTitle" maxlength="80" placeholder="Ex. Vérifier mon salaire" required></label><label>Date<input id="reminderDate" type="date" required></label><label>Type<select id="reminderKind"><option value="reminder">Rappel</option><option value="payday">Jour de paie</option><option value="bill">Facture</option><option value="goal">Projet</option></select></label><label>Note (facultatif)<textarea id="reminderNote" rows="3" maxlength="240" placeholder="Un détail à garder en tête"></textarea></label><div class="modal-actions"><button type="button" class="button ghost" data-close>Annuler</button><button class="button primary">Ajouter le rappel</button></div>
+    </form>
+  </div>
+
+  <div class="modal-backdrop hidden" id="notificationsModal" role="dialog" aria-modal="true" aria-labelledby="notificationsTitle">
+    <section class="modal notification-modal"><div class="modal-head"><div><span class="eyebrow">À ne pas manquer</span><h2 id="notificationsTitle">Notifications</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div><p>Retrouve et filtre tes rappels dans Réglages → Notifications.</p><button class="button primary" id="notificationOpenSettings" type="button">Gérer mes notifications</button></section>
   </div>
 
   <div class="modal-backdrop hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-    <div class="modal help-modal"><div class="modal-head"><div><span class="eyebrow">Wiki Flow</span><h2 id="helpTitle">Comment peut-on t’aider ?</h2></div><button type="button" class="close" data-close>×</button></div>
-      <label class="help-search"><span class="sr-only">Rechercher dans l’aide</span><svg><use href="#i-search"/></svg><input id="helpSearch" type="search" placeholder="Ex. ajouter une dépense, exporter, récurrent…"></label>
+    <section class="modal help-modal"><div class="modal-head"><div><span class="eyebrow">Aide Flōw</span><h2 id="helpTitle">Que cherches-tu ?</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <label class="help-search"><span class="sr-only">Rechercher dans l’aide</span><svg><use href="assets/icons.svg#i-search"/></svg><input id="helpSearch" type="search" placeholder="Ex. solde disponible, projet, importer…"></label>
       <div class="help-topics" id="helpTopics">
-        <details data-help="ajouter dépense revenu opération montant catégorie"><summary><span>↕️</span><b>Ajouter une dépense ou un revenu</b></summary><p>Utilise le bouton <strong>Ajouter</strong> en haut ou le <strong>+</strong> sur mobile. Choisis “J’ai payé” ou “J’ai reçu”, puis indique le montant, le libellé, la catégorie et le compte.</p></details>
-        <details data-help="solde reste vivre dashboard accueil calcul"><summary><span>🌤️</span><b>Comprendre le reste à vivre</b></summary><p>Le reste à vivre combine les entrées et sorties du mois avec les mouvements récurrents encore prévus. Ton solde de compte reste séparé pour éviter toute confusion.</p></details>
-        <details data-help="récurrent prévision abonnement salaire facture à venir valider"><summary><span>🔁</span><b>Gérer les récurrents et prévisions</b></summary><p>Dans <strong>À venir</strong>, enregistre salaires, abonnements ou factures. Quand un mouvement passe réellement, clique sur “C’est passé” pour le transformer en opération.</p></details>
-        <details data-help="projet objectif épargne ajouter argent"><summary><span>🎯</span><b>Suivre un projet d’épargne</b></summary><p>Crée un projet avec un montant cible, puis ajoute progressivement les sommes mises de côté. Flow affiche ta progression sans modifier automatiquement le solde du compte.</p></details>
-        <details data-help="compte courant livret changer ajouter supprimer"><summary><span>💳</span><b>Utiliser plusieurs comptes</b></summary><p>Ajoute tes comptes depuis <strong>Réglages → Mes comptes</strong>. Le sélecteur dans la barre du haut change le compte affiché partout dans l’application.</p></details>
-        <details data-help="export exporter import importer sauvegarde transfert code copier coller migration anciennes données json"><summary><span>📦</span><b>Sauvegarder, transférer et migrer</b></summary><p>Tu peux utiliser un fichier JSON ou générer un code autonome à copier-coller sur un autre appareil. L’import remplace les données actuelles après confirmation. Flow récupère aussi automatiquement les anciennes données V2, V3 et V4 lorsqu’elles existent sur le même site.</p></details>
-        <details data-help="thème clair sombre automatique neon sakura ocean peace icône apparence"><summary><span>🌓</span><b>Changer le thème</b></summary><p>Choisis Auto, Clair, Sombre, Neon Sakura ou Ocean Peace dans les réglages. Les couleurs, contrastes et icônes utilisent le thème actif automatiquement.</p></details>
-        <details data-help="modifier supprimer opération récurrent projet"><summary><span>✏️</span><b>Modifier ou supprimer un élément</b></summary><p>Les icônes crayon et corbeille apparaissent à droite des opérations, récurrents et projets. Une confirmation protège les suppressions importantes.</p></details>
-      </div>
-      <div class="help-empty hidden" id="helpEmpty">Aucun article trouvé. Essaie un mot plus simple, comme “compte” ou “exporter”.</div>
-    </div>
+        <details data-help="ajouter dépense revenu opération montant catégorie"><summary><svg><use href="assets/icons.svg#i-plus"/></svg><b>Ajouter une dépense ou un revenu</b></summary><p>Le bouton <strong>Ajouter</strong> ouvre une opération. Choisis dépense, revenu ou transfert, saisis le montant et le compte. Tu peux ajouter une note pour te souvenir du contexte.</p></details>
+        <details data-help="solde argent disponible salaire calcul charges récurrents réservations"><summary><svg><use href="assets/icons.svg#i-wallet"/></svg><b>Comprendre le disponible jusqu’au salaire</b></summary><p>Flōw part du solde réel de tes comptes, puis déduit les charges prévues avant ta prochaine paie, ton coussin de sécurité et les sommes que tu as choisi de réserver. Ce calcul t’aide à te repérer, il ne réalise aucun mouvement bancaire.</p></details>
+        <details data-help="salaire paie date jour revenu récurrent"><summary><svg><use href="assets/icons.svg#i-calendar"/></svg><b>Indiquer ma prochaine paie</b></summary><p>Dans Réglages → Disponible, choisis ton jour habituel de paie. Ajoute aussi le salaire dans À venir pour que Flōw puisse afficher la date et les prévisions de revenu.</p></details>
+        <details data-help="récurrent prévision abonnement salaire facture valider"><summary><svg><use href="assets/icons.svg#i-repeat"/></svg><b>Gérer salaires, factures et abonnements</b></summary><p>Dans À venir, ajoute les paiements attendus. Quand un mouvement est réellement passé, valide-le pour le retrouver dans tes opérations.</p></details>
+        <details data-help="projet objectif épargne réservation auto fixe pourcentage refuser libérer prorata"><summary><svg><use href="assets/icons.svg#i-target"/></svg><b>Réserver de l’argent pour un projet</b></summary><p>Un projet peut réserver un montant fixe ou une part de ton salaire. Flōw t’explique le calcul, laisse quelques minutes pour refuser une nouvelle réservation et permet de libérer une somme ensuite. Cela ne déclenche aucun virement.</p></details>
+        <details data-help="comptes courant épargne livret solde transfert modifier supprimer"><summary><svg><use href="assets/icons.svg#i-wallet"/></svg><b>Organiser plusieurs comptes</b></summary><p>Dans Réglages → Comptes, distingue compte courant, épargne et espèces. Un transfert entre deux comptes déplace le montant dans les calculs de Flōw sans contacter ta banque.</p></details>
+        <details data-help="importer relevé csv banque fichier opérations solde"><summary><svg><use href="assets/icons.svg#i-file"/></svg><b>Importer un relevé bancaire</b></summary><p>Choisis un relevé CSV, vérifie les colonnes et les opérations détectées, puis confirme l’import. Tu gardes le contrôle sur les lignes ajoutées.</p></details>
+        <details data-help="export exporter import importer sauvegarde transfert code copier coller anciennes données"><summary><svg><use href="assets/icons.svg#i-download"/></svg><b>Sauvegarder, transférer et migrer</b></summary><p>Export au format fichier ou code à copier-coller. Avant d’importer, vérifie le compte affiché : l’import remplace les données actuelles après confirmation.</p></details>
+        <details data-help="thème clair sombre auto neon sakura ocean peace affichage"><summary><svg><use href="assets/icons.svg#i-moon"/></svg><b>Choisir mes couleurs et mon affichage</b></summary><p>Dans Réglages → Général, choisis un thème, une ambiance, l’espace de la vue ordinateur et le niveau d’animation.</p></details>
+        <details data-help="notification rappel autoriser filtrer paie"><summary><svg><use href="assets/icons.svg#i-bell"/></svg><b>Gérer les notifications</b></summary><p>Les rappels apparaissent dans Flōw. Les notifications système nécessitent l’autorisation de ton navigateur et peuvent varier selon l’installation sur mobile.</p></details>
+      </div><div class="help-empty hidden" id="helpEmpty">Aucun article trouvé. Essaie un mot comme « compte », « salaire » ou « projet ».</div>
+    </section>
   </div>
 
   <div class="modal-backdrop hidden" id="cloudAuthModal" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
-    <form class="modal small cloud-auth-modal" id="cloudAuthForm"><div class="modal-head"><div><span class="eyebrow">Synchronisation Flow</span><h2 id="cloudAuthTitle">Retrouve ton espace</h2></div><button type="button" class="close" data-close>×</button></div>
-      <p class="modal-intro" id="cloudAuthIntro">Connecte-toi pour retrouver tes comptes, opérations, projets et prévisions sur tous tes appareils.</p>
-      <label id="cloudNameField" class="hidden">Nom affiché<input id="cloudName" maxlength="40" autocomplete="name" placeholder="Ton prénom ou pseudo"></label>
-      <label>E-mail<input id="cloudEmail" type="email" required autocomplete="email" placeholder="toi@exemple.fr"></label>
-      <label>Mot de passe<input id="cloudPassword" type="password" required minlength="6" autocomplete="current-password" placeholder="6 caractères minimum"></label>
-      <p class="cloud-auth-error" id="cloudAuthError" role="alert"></p>
-      <div class="modal-actions"><button class="button ghost" type="button" id="cloudAuthSwitch">Créer un compte</button><button class="button primary" type="submit" id="cloudAuthSubmit">Se connecter</button></div>
-      <button class="cloud-offline-link" type="button" id="cloudOffline">Continuer sans compte</button>
+    <form class="modal small cloud-auth-modal" id="cloudAuthForm"><div class="modal-head"><div><span class="eyebrow">Synchronisation Flōw</span><h2 id="cloudAuthTitle">Retrouve ton espace</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <p class="modal-intro" id="cloudAuthIntro">Connecte-toi pour retrouver tes comptes, opérations et projets sur tes appareils.</p><label id="cloudNameField" class="hidden">Nom affiché<input id="cloudName" maxlength="40" autocomplete="name" placeholder="Ton prénom ou pseudo"></label><label>E-mail<input id="cloudEmail" type="email" required autocomplete="email" placeholder="toi@exemple.fr"></label><label>Mot de passe<input id="cloudPassword" type="password" required minlength="6" autocomplete="current-password" placeholder="6 caractères minimum"></label><button class="text-button auth-reset" id="cloudResetPassword" type="button">Réinitialiser mon mot de passe</button><p class="cloud-auth-error" id="cloudAuthError" role="alert"></p><div class="modal-actions"><button class="button ghost" type="button" id="cloudAuthSwitch">Créer un compte</button><button class="button primary" type="submit" id="cloudAuthSubmit">Se connecter</button></div><button class="cloud-offline-link" type="button" id="cloudOffline">Continuer sans compte</button>
     </form>
   </div>
 
-  <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
-    <div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div>
-  </div>
+  <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle"><div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=4.2.13"></script>
+  <script src="flow-core.js?v=5.0.0"></script>
+  <script src="flow-backup.js?v=5.0.0"></script>
+  <script src="app.js?v=5.0.0"></script>
+  <script type="module" src="bank-import.js?v=1.0.0"></script>
   <script type="module" src="flow-cloud.js?v=1.0.0"></script>
+  <script type="module" src="flow-pwa.js?v=1.0.0"></script>
 </body>
 </html>

@@ -1,0 +1,12 @@
+node_modules/
+artifacts/
+.env
+.env.*
+!.env.example
+.wrangler/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+push-server/wrangler.toml
+.dev.vars
+.dev.vars.*

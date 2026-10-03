@@ -1,0 +1,15 @@
+name = "flow-push-relay"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "PUSH_STORE"
+id = "REPLACE_WITH_CLOUDFLARE_KV_NAMESPACE_ID"
+
+[vars]
+ALLOWED_ORIGIN = "https://itssoren.github.io"
+VAPID_PUBLIC_KEY = "REPLACE_WITH_BASE64URL_PUBLIC_KEY"
+VAPID_SUBJECT = "mailto:REPLACE_WITH_YOUR_CONTACT_EMAIL"
