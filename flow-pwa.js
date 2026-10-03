@@ -134,7 +134,7 @@
     try { const response = await fetch('push-config.json', { cache: 'no-cache' }); if (response.ok) config = await response.json(); } catch (_) { /* Optional service remains disabled. */ }
     if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
       try {
-        registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+        registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './', updateViaCache: 'none' });
         const offerUpdate = () => { if (!registration.waiting) return; const button = add('button', 'Actualiser Flōw', 'button secondary'); button.type = 'button'; button.addEventListener('click', () => { registration.waiting.postMessage({ type: 'SKIP_WAITING' }); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); }); };
         offerUpdate(); registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', offerUpdate));
       } catch (_) { status.textContent = 'L’installation hors ligne n’est pas disponible ici. Les fonctions locales restent utilisables.'; }

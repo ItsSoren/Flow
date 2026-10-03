@@ -6,7 +6,7 @@ const today = new Date().toISOString().slice(0, 10);
   const browser = await chromium.launch({ headless: true, channel: process.env.FLOW_BROWSER_CHANNEL || undefined });
   try {
     for (const width of [1440, 390]) {
-      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
       const page = await context.newPage(); const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       page.on('dialog', d => d.accept());
@@ -20,9 +20,12 @@ const today = new Date().toISOString().slice(0, 10);
       const balances = () => page.evaluate(() => { const s = FlowApp.getState(); return [FlowCore.getAccountBalance(s, 'main'), FlowCore.getSpendableBreakdown(s).spendable]; });
       await go('goals'); await page.locator('[data-open="goal"]').click();
       await page.locator('#goalName').fill('Voyage test'); await page.locator('#goalTarget').fill('1000');
+      await page.locator('#goalEmoji').fill('PC');
       await page.locator('#goalAutoMode').selectOption('fixed'); await page.locator('#goalAutoValue').fill('100');
       await page.locator('#goalForm .primary').click();
       assert.equal(await page.evaluate(() => FlowApp.getState().goals.length), 1);
+      assert.equal(await page.evaluate(() => FlowApp.getState().goals[0].name), 'Voyage test', 'opening a modal cannot steal focus during rapid typing');
+      assert.equal(await page.locator('.goal-emoji').textContent(), 'PC', `the configured goal marker is displayed: ${await page.evaluate(() => JSON.stringify(FlowApp.getState().goals))}`);
       await go('dashboard'); await page.locator('.quick.income').click();
       await page.locator('#txAmount').fill('1000'); await page.locator('#txLabel').fill('Salaire test');
       await page.locator('#txDate').fill(today); await page.locator('#txCategory').selectOption('salaire');

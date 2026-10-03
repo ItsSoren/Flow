@@ -6,12 +6,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, doc, collection, getDoc, getDocs, setDoc, deleteDoc,
-  writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp
+  writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp, query, where, limit
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit } from "./flow-sync-core.mjs";
 
-// Flow deliberately shares the Firebase project/Auth session with Sōlo, while
+// Flow deliberately shares the Firebase project/Auth identities with Sōlo, while
 // all of its financial data stays in the flowUsers namespace.
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,8 +49,8 @@ function status(message, connected = false) {
   $("cloudVerifyEmail")?.classList.toggle("hidden", !connected || user?.emailVerified !== false);
   $("cloudDeleteAccount")?.classList.toggle("hidden", !connected);
 }
-function setAuthError(message) { const node = $("cloudAuthError"); if (node) node.textContent = message; }
-function openAuth() { $("cloudAuthModal")?.classList.remove("hidden"); $("cloudEmail")?.focus(); }
+function setAuthError(message, success = false) { const node = $("cloudAuthError"); if (node) { node.textContent = message; node.classList.toggle('is-success', success); node.setAttribute('role', success ? 'status' : 'alert'); } }
+function openAuth() { setAuthMode('login'); setAuthError(''); $("cloudAuthModal")?.classList.remove("hidden"); $("cloudEmail")?.focus(); }
 function closeAuth() { $("cloudAuthModal")?.classList.add("hidden"); setAuthError(""); }
 function setAuthMode(mode) {
   authMode = mode;
@@ -82,7 +82,7 @@ function currentQueue() {
   try { return JSON.parse(localStorage.getItem(queueKey(user.uid)) || "null"); }
   catch { return null; }
 }
-function saveQueue(state, baseRevision = knownRevision) {
+function saveQueue(state, baseRevision = null) {
   if (!user || !state) return false;
   const serialized = serialize(state);
   if (new TextEncoder().encode(serialized).byteLength > MAX_STATE_BYTES) {
@@ -91,7 +91,9 @@ function saveQueue(state, baseRevision = knownRevision) {
   }
   try {
     const old = currentQueue();
-    const record = { state, baseRevision, generation: (old?.generation || 0) + 1, queuedAt: Date.now() };
+    // New edits must retain the revision on which the pending edits were based.
+    // A newer remote snapshot is not permission to overwrite it silently.
+    const record = { state, baseRevision: baseRevision ?? old?.baseRevision ?? knownRevision, generation: (old?.generation || 0) + 1, queuedAt: Date.now() };
     localStorage.setItem(queueKey(user.uid), JSON.stringify(record));
     return true;
   } catch {
@@ -228,12 +230,9 @@ async function loadForUser(guestCandidate = null) {
       if (useful(local)) displayConflict({ remoteState: remote.personalState, revision: knownRevision });
       else window.FlowApp?.applyRemoteState?.(remote.personalState);
     }
-  } else if (pending?.state) {
-    saveQueue(pending.state, knownRevision);
-    flushQueue();
-  } else if (useful(local)) {
-    saveQueue(local, knownRevision);
-    flushQueue();
+  } else if (pending?.state || useful(local)) {
+    // A missing document can mean an erasure from another device, not just a new account.
+    displayConflict({ remoteState: window.FlowApp?.getEmptyState?.(), revision: knownRevision });
   } else if (guestCandidate && useful(guestCandidate) && confirm("Des données locales non synchronisées sont disponibles sur cet appareil.\n\nVeux-tu les copier dans ce nouvel espace Flow ? La copie locale d’origine restera sur cet appareil.")) {
     window.FlowApp?.applyRemoteState?.(guestCandidate);
     saveQueue(guestCandidate, knownRevision);
@@ -242,7 +241,11 @@ async function loadForUser(guestCandidate = null) {
   if (!user || user.uid !== uid) return;
   unsubscribe?.();
   unsubscribe = onSnapshot(stateRef(uid), snapshotUpdate => {
-    if (!user || user.uid !== uid || erasingUid === uid || !snapshotUpdate.exists()) return;
+    if (!user || user.uid !== uid || erasingUid === uid) return;
+    if (!snapshotUpdate.exists()) {
+      if (knownRevision > 0) displayConflict({ remoteState: window.FlowApp?.getEmptyState?.(), revision: 0 });
+      return;
+    }
     const data = snapshotUpdate.data();
     const incoming = data.personalState;
     if (!incoming) return;
@@ -296,7 +299,7 @@ async function resetPassword() {
   if (!email) { setAuthError("Saisis ton adresse e-mail pour recevoir le lien de réinitialisation."); $("cloudEmail")?.focus(); return; }
   try {
     await sendPasswordResetEmail(auth, email);
-    setAuthError("Si un compte Flow existe pour cette adresse, un lien de réinitialisation vient d’être envoyé.");
+    setAuthError("Si un compte Flow existe pour cette adresse, un lien de réinitialisation vient d’être envoyé.", true);
   } catch (error) { setAuthError(authError(error)); }
 }
 async function sendVerificationEmail() {
@@ -321,15 +324,24 @@ async function erasePersonalFlowData() {
     // Let an already submitted write settle before deleting: otherwise it can recreate the document.
     await syncIdle;
     if (user?.uid !== uid) return;
-    // Membership indexes belong to shared spaces, which this personal-only action explicitly preserves.
-    await deleteDoc(stateRef(uid));
+    // Keep only an empty personal state and a monotonically increasing revision.
+    // Deleting the document would reset revision to zero and allow an old offline queue to resurrect it.
+    // Shared-space membership indexes are intentionally untouched.
+    const emptyState = window.FlowApp?.getEmptyState?.();
+    if (!emptyState) throw new Error("Empty Flow state unavailable");
+    const erasedRevision = await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(stateRef(uid));
+      const revision = snapshot.exists() && Number.isSafeInteger(snapshot.data().revision) ? snapshot.data().revision : 0;
+      transaction.set(stateRef(uid), { personalState: emptyState, revision: revision + 1, schemaVersion: 1, updatedAt: serverTimestamp() });
+      return revision + 1;
+    });
     if (user?.uid !== uid) return;
     const localKey = window.FlowApp?.getStorageKey?.();
     clearQueue();
     try { localStorage.removeItem(conflictKey(uid)); } catch { /* best effort */ }
-    window.FlowApp?.applyRemoteState?.(window.FlowApp?.getEmptyState?.() || {});
+    window.FlowApp?.applyRemoteState?.(emptyState);
     if (localKey) { try { localStorage.removeItem(localKey); } catch { /* memory is already blank */ } }
-    knownRevision = 0;
+    knownRevision = erasedRevision;
     status("Données personnelles Flow effacées de ce compte et de cet appareil. Les espaces partagés et le compte Sōlo/NovaTasks sont conservés.", true);
   } catch (error) {
     console.warn("Flow personal data erasure failed", error?.code || error?.message || error);
@@ -359,11 +371,14 @@ function renderSharing(message = "") {
       <label>Nom de l’espace<input name="name" maxlength="48" required placeholder="Vacances, budget maison…"></label>
       <label>Type<select name="kind"><option value="project">Projet partagé</option><option value="budget">Budget partagé</option></select></label>
       <label>Montant cible ou plafond (facultatif)<input name="amount" type="number" min="0" max="10000000" step="0.01" inputmode="decimal" placeholder="0,00"></label>
+      <p class="field-help">Ton nom affiché sera visible par les membres. Ni ton e-mail ni tes comptes personnels ne sont copiés dans l’espace.</p>
       <button type="submit" class="button secondary">Créer l’espace</button></form>
     <form data-share-form="join" class="sharing-form"><h3>Rejoindre avec un code</h3>
       <label>Code d’invitation<input name="code" maxlength="64" minlength="32" required autocomplete="off" spellcheck="false" placeholder="Colle le code reçu"></label>
+      <p class="field-help">En rejoignant, tu partages ton nom affiché avec les membres de cet espace.</p>
       <button type="submit" class="button ghost">Rejoindre</button></form>
-  </div><p class="field-help" role="status" data-share-status>${message}</p><div data-share-list><p class="field-help">Chargement des espaces…</p></div>`;
+  </div><button type="button" class="button ghost" data-share="refresh">Actualiser mes espaces</button><p class="field-help" role="status" data-share-status></p><div data-share-list><p class="field-help">Chargement des espaces…</p></div>`;
+  mount.querySelector('[data-share-status]').textContent = message;
   refreshSharedSpaces();
 }
 async function createSharedSpace(form) {
@@ -377,7 +392,7 @@ async function createSharedSpace(form) {
   const batch = writeBatch(db);
   const workspace = doc(db, "flowWorkspaces", workspaceId);
   batch.set(workspace, { ownerId: who, name, kind, memberCount: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  batch.set(doc(db, "flowWorkspaces", workspaceId, "members", who), { uid: who, role: "admin", joinedAt: serverTimestamp() });
+  batch.set(doc(db, "flowWorkspaces", workspaceId, "members", who), { uid: who, role: "admin", displayName: String(user.displayName || 'Membre').slice(0, 48), joinedAt: serverTimestamp() });
   batch.set(doc(db, "flowUsers", who, "workspaces", workspaceId), { workspaceId, role: "admin", name });
   await batch.commit();
   await setDoc(doc(db, "flowWorkspaces", workspaceId, "goals", "summary"), {
@@ -403,7 +418,7 @@ async function acceptInvite(form) {
   if (!invitation.workspaceId || !["member", "viewer"].includes(invitation.role) || !invitation.expiresAt?.toDate || invitation.expiresAt.toDate().getTime() <= Date.now()) throw new Error("Code invalide ou expiré.");
   const uid = user.uid;
   const batch = writeBatch(db);
-  batch.set(doc(db, "flowWorkspaces", invitation.workspaceId, "members", uid), { uid, role: invitation.role, inviteCode: code, joinedAt: serverTimestamp() });
+  batch.set(doc(db, "flowWorkspaces", invitation.workspaceId, "members", uid), { uid, role: invitation.role, displayName: String(user.displayName || 'Membre').slice(0, 48), inviteCode: code, joinedAt: serverTimestamp() });
   batch.set(doc(db, "flowUsers", uid, "workspaces", invitation.workspaceId), { workspaceId: invitation.workspaceId, role: invitation.role, name: "Espace partagé" });
   await batch.commit();
   if (user?.uid === uid) await refreshSharedSpaces();
@@ -416,7 +431,11 @@ async function refreshSharedSpaces() {
     const indexes = await getDocs(collection(db, "flowUsers", uid, "workspaces"));
     const spaces = await Promise.all(indexes.docs.slice(0, 50).map(async item => {
       const data = item.data();
-      try { const snap = await getDoc(doc(db, "flowWorkspaces", item.id)); return snap.exists() ? { id: item.id, role: data.role, ...snap.data() } : null; }
+      try {
+        const snap = await getDoc(doc(db, "flowWorkspaces", item.id));
+        const member = await getDoc(doc(db, "flowWorkspaces", item.id, "members", uid));
+        return snap.exists() && member.exists() ? { id: item.id, ...snap.data(), role: member.data().role } : null;
+      }
       catch { return null; }
     }));
     if (user?.uid !== uid || !list.isConnected) return;
@@ -444,7 +463,7 @@ async function refreshSharedSpaces() {
         if (content.exists()) {
           const data = content.data();
           const limit = document.createElement("p");
-          limit.textContent = `${space.kind === "budget" ? "Plafond" : "Objectif"} : ${Number(data.target || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}${space.kind === "project" ? ` · déjà mis de côté : ${Number(data.saved || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""}`;
+          limit.textContent = `${space.kind === "budget" ? "Plafond" : "Objectif"} : ${Number(data.target || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · ${space.kind === "budget" ? "dépenses partagées" : "déjà mis de côté"} : ${Number(data.saved || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}`;
           card.append(limit);
           if (space.role !== "viewer") {
             const edit = document.createElement("form"); edit.className = "sharing-actions";
@@ -463,14 +482,76 @@ async function refreshSharedSpaces() {
           }
         }
       } catch { /* permission or deleted summary: metadata remains available */ }
+      await appendSharingManagement(card, space, uid);
+      if (user?.uid !== uid || !list.isConnected) return;
       list.append(card);
     }
   } catch (error) {
     if (list.isConnected) list.textContent = "Impossible de charger les espaces maintenant. Tes données personnelles restent disponibles.";
   }
 }
+async function sharingAction(button, uid, confirmation, action) {
+  if (user?.uid !== uid || (confirmation && !confirm(confirmation))) return;
+  button.disabled = true;
+  try {
+    await action();
+    if (user?.uid === uid) await refreshSharedSpaces();
+  } catch {
+    const node = shareMount()?.querySelector('[data-share-status]');
+    if (user?.uid === uid && node) node.textContent = "Action non autorisée ou connexion indisponible. Aucun succès n’a été confirmé.";
+  } finally { button.disabled = false; }
+}
+async function appendSharingManagement(card, space, uid) {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary'); summary.textContent = 'Membres et accès'; details.append(summary);
+  try {
+    const members = await getDocs(collection(db, 'flowWorkspaces', space.id, 'members'));
+    if (user?.uid !== uid) return;
+    for (const member of members.docs) {
+      const data = member.data(); const row = document.createElement('div'); row.className = 'sharing-actions';
+      const label = document.createElement('span');
+      label.textContent = `${member.id === uid ? 'Toi' : data.displayName || `Membre · ${member.id.slice(-8)}`} · ${member.id === space.ownerId ? 'propriétaire' : data.role === 'viewer' ? 'lecture seule' : 'peut modifier'}`;
+      row.append(label);
+      if (member.id !== space.ownerId && space.role === 'admin') {
+        const role = document.createElement('button'); role.type = 'button'; role.className = 'button ghost';
+        const nextRole = data.role === 'viewer' ? 'member' : 'viewer';
+        role.textContent = nextRole === 'viewer' ? 'Passer en lecture seule' : 'Autoriser la modification';
+        role.addEventListener('click', () => sharingAction(role, uid, `Changer les droits de ce membre dans « ${space.name} » ?`, () => setDoc(doc(db, 'flowWorkspaces', space.id, 'members', member.id), { role: nextRole }, { merge: true })));
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button danger'; remove.textContent = 'Retirer';
+        remove.addEventListener('click', () => sharingAction(remove, uid, `Retirer l’accès de ce membre à « ${space.name} » ? Ses copies déjà consultées ne peuvent pas être effacées. Révoque aussi les codes d’invitation actifs pour empêcher un retour avec ces codes.`, () => {
+          const batch = writeBatch(db); batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', member.id)); batch.delete(doc(db, 'flowUsers', member.id, 'workspaces', space.id)); return batch.commit();
+        }));
+        row.append(role, remove);
+      }
+      details.append(row);
+    }
+    if (uid !== space.ownerId) {
+      const leave = document.createElement('button'); leave.type = 'button'; leave.className = 'button danger'; leave.textContent = 'Quitter cet espace';
+      leave.addEventListener('click', () => sharingAction(leave, uid, `Quitter « ${space.name} » ? Tes données personnelles restent intactes. Un code d’invitation valide sera nécessaire pour revenir.`, () => {
+        const batch = writeBatch(db); batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', uid)); batch.delete(doc(db, 'flowUsers', uid, 'workspaces', space.id)); return batch.commit();
+      }));
+      details.append(leave);
+    }
+    if (space.role === 'admin') {
+      const invites = await getDocs(query(collection(db, 'flowInvites'), where('workspaceId', '==', space.id), limit(25)));
+      const title = document.createElement('h4'); title.textContent = 'Codes d’invitation'; details.append(title);
+      if (!invites.size) { const text = document.createElement('p'); text.className = 'field-help'; text.textContent = 'Aucun code actif.'; details.append(text); }
+      for (const invite of invites.docs) {
+        const data = invite.data(); const row = document.createElement('div'); row.className = 'sharing-actions';
+        const label = document.createElement('span'); const expires = data.expiresAt?.toDate?.();
+        label.textContent = `${data.role === 'viewer' ? 'Lecture seule' : 'Peut modifier'} · ${expires ? `expiration ${expires.toLocaleDateString('fr-FR')}` : 'expiration inconnue'}`;
+        const revoke = document.createElement('button'); revoke.type = 'button'; revoke.className = 'button danger'; revoke.textContent = 'Révoquer le code';
+        revoke.addEventListener('click', () => sharingAction(revoke, uid, 'Révoquer ce code ? Il ne permettra plus de rejoindre cet espace. Les membres déjà présents gardent leur accès.', () => deleteDoc(doc(db, 'flowInvites', invite.id))));
+        row.append(label, revoke); details.append(row);
+      }
+      const help = document.createElement('p'); help.className = 'field-help'; help.textContent = 'La révocation d’un code ne retire pas les membres déjà présents. Retirer un membre n’efface pas ses copies locales.'; details.append(help);
+    }
+  } catch { const text = document.createElement('p'); text.className = 'field-help'; text.textContent = 'Gestion des accès indisponible. Actualise avec une connexion.'; details.append(text); }
+  card.append(details);
+}
 shareMount()?.addEventListener("click", event => {
   if (event.target.closest('[data-share="signin"]')) openAuth();
+  if (event.target.closest('[data-share="refresh"]')) refreshSharedSpaces();
 });
 shareMount()?.addEventListener("submit", event => {
   const form = event.target.closest("form[data-share-form]");

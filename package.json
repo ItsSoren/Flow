@@ -7,6 +7,7 @@
     "start": "node scripts/preview-server.cjs",
     "test": "node --test tests/*.test.cjs",
     "test:ui": "node tests/ui-smoke.cjs && node tests/ui-finance.cjs",
+    "test:cloud-ui": "firebase emulators:exec --only auth,firestore --project demo-flow-v5 \"node tests/ui-cloud.cjs\"",
     "test:rules": "firebase emulators:exec --only firestore --project demo-flow-v5 \"node --test tests/firestore-rules.cjs\""
   },
   "devDependencies": {

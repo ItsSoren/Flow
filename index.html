@@ -111,6 +111,7 @@
     <section class="page settings-page" id="page-settings">
       <div class="page-intro"><div><span class="eyebrow">À ton rythme</span><h1>Réglages</h1><p>Un espace simple pour gérer ton compte, tes préférences et tes données.</p></div></div>
       <nav class="settings-nav" aria-label="Rubriques des réglages"><a href="#settings-general">Général</a><a href="#settings-accounts">Comptes</a><a href="#settings-budget">Disponible</a><a href="#settings-notifications">Notifications</a><a href="#settings-security">Sécurité</a><a href="#settings-sharing">Partage</a><a href="#settings-backup">Sauvegarde</a><a href="#settings-help">Aide</a><a href="#settings-about">Confidentialité</a></nav>
+      <label class="mobile-settings-sections"><span>Aller à une rubrique</span><select id="settingsSectionSelect"><option value="" selected disabled>Choisir une rubrique…</option><option value="settings-general">Apparence et préférences</option><option value="settings-accounts">Comptes</option><option value="settings-budget">Disponible jusqu’au salaire</option><option value="settings-notifications">Notifications</option><option value="settings-security">Connexion et sécurité</option><option value="settings-sharing">Partage</option><option value="settings-backup">Sauvegarde et transfert</option><option value="settings-help">Aide et tutoriel</option><option value="settings-about">Confidentialité et crédits</option></select></label>
       <div class="settings-grid">
         <section class="card settings-card cloud-settings-card" id="settings-security"><div class="settings-icon"><svg><use href="assets/icons.svg#i-cloud"/></svg></div><div><span class="card-kicker">Sécurité et synchronisation</span><h2>Retrouver Flōw partout</h2><p id="cloudStatus">Tes données restent sur cet appareil. Connecte-toi pour les retrouver sur PC et mobile.</p><p class="field-help">L’action d’effacement concerne uniquement les données personnelles Flōw. Elle ne supprime pas ton identifiant partagé ni tes espaces collaboratifs.</p><div class="cloud-settings-actions"><button class="button secondary" id="cloudSignIn" type="button">Se connecter</button><button class="button ghost hidden" id="cloudSignOut" type="button">Se déconnecter</button><button class="button ghost hidden" id="cloudVerifyEmail" type="button">Vérifier mon e-mail</button><button class="button danger hidden" id="cloudDeleteAccount" type="button">Effacer mes données Flōw</button></div></div></section>
 
@@ -215,8 +216,8 @@
   <script src="flow-core.js?v=5.0.0"></script>
   <script src="flow-backup.js?v=5.0.0"></script>
   <script src="app.js?v=5.0.0"></script>
-  <script type="module" src="bank-import.js?v=1.0.0"></script>
-  <script type="module" src="flow-cloud.js?v=1.0.0"></script>
-  <script type="module" src="flow-pwa.js?v=1.0.0"></script>
+  <script type="module" src="bank-import.js?v=5.0.0"></script>
+  <script type="module" src="flow-cloud.js?v=5.0.0"></script>
+  <script type="module" src="flow-pwa.js?v=5.0.0"></script>
 </body>
 </html>

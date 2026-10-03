@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'flow-shell-v5-20261002';
+const CACHE = 'flow-shell-v5-20261003';
 const SHELL = ['index.html', 'styles.css', 'legal.css', 'app.js', 'flow-core.js', 'flow-backup.js', 'flow-sync-core.mjs', 'bank-import.js', 'flow-pwa.js', 'flow-cloud.js', 'firebase-config.js', 'push-config.json', 'manifest.webmanifest', 'privacy.html', 'credits.html', 'assets/icons.svg', 'assets/mobile-icon-192.png', 'assets/mobile-icon-512.png', 'assets/logo-mark.svg', 'assets/favicon.svg'];
 self.addEventListener('install', event => event.waitUntil((async () => {
   const cache = await caches.open(CACHE);
@@ -17,7 +17,7 @@ self.addEventListener('fetch', event => {
   if (request.mode !== 'navigate' && !SHELL.includes(relative)) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE), key = new URL(relative || 'index.html', self.registration.scope);
-    try { const response = await fetch(request); if (response.ok && response.type === 'basic') await cache.put(key, response.clone()); return response; }
+    try { const response = await fetch(request, { cache: 'no-cache' }); if (response.ok && response.type === 'basic') await cache.put(key, response.clone()); return response; }
     catch (_) { return await cache.match(key) || (request.mode === 'navigate' ? await cache.match(new URL('index.html', self.registration.scope)) : null) || new Response('Connexion indisponible', { status: 503 }); }
   })());
 });

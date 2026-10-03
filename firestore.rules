@@ -216,8 +216,10 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['workspaceId', 'role', 'name', 'updatedAt'])
           && request.resource.data.workspaceId == workspaceId
           && request.resource.data.role in ['admin', 'member', 'viewer']
-          && request.resource.data.name is string && request.resource.data.name.size() <= 48;
-        allow delete: if flowSignedIn() && request.auth.uid == userId;
+          && request.resource.data.name is string && request.resource.data.name.size() <= 48
+          && existsAfter(flowMemberPath(workspaceId, userId))
+          && getAfter(flowMemberPath(workspaceId, userId)).data.role == request.resource.data.role;
+        allow delete: if flowSignedIn() && (request.auth.uid == userId || flowAdmin(workspaceId));
       }
     }
 
@@ -237,13 +239,17 @@ service cloud.firestore {
       match /members/{userId} {
         allow read: if flowMember(workspaceId);
         allow create: if flowSignedIn() && request.auth.uid == userId
-          && request.resource.data.keys().hasOnly(['uid', 'role', 'inviteCode', 'joinedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'role', 'displayName', 'inviteCode', 'joinedAt'])
+          && (!request.resource.data.keys().hasAny(['displayName']) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 48))
           && request.resource.data.uid == userId
           && request.resource.data.role in ['admin', 'member', 'viewer']
           && request.resource.data.joinedAt is timestamp
           && (flowOwnerBootstrap(workspaceId, userId) || flowAcceptedInvite(workspaceId, userId));
-        allow update: if flowAdmin(workspaceId) && flowRole(request.resource.data.role)
-          && request.resource.data.uid == resource.data.uid;
+        allow update: if flowAdmin(workspaceId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && (userId == get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId
+            ? request.resource.data.role == 'admin'
+            : request.resource.data.role in ['member', 'viewer']);
         allow delete: if flowSignedIn()
           && userId != get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId
           && (flowAdmin(workspaceId) || request.auth.uid == userId);
@@ -273,15 +279,14 @@ service cloud.firestore {
 
     match /flowInvites/{code} {
       allow get: if flowSignedIn();
-      allow list: if false;
+      allow list: if flowSignedIn() && flowAdmin(resource.data.workspaceId);
       allow create: if flowSignedIn() && flowValidInviteCode(code) && flowAdmin(request.resource.data.workspaceId)
         && request.resource.data.keys().hasOnly(['workspaceId', 'role', 'createdBy', 'expiresAt'])
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.role in ['member', 'viewer']
-        && request.resource.data.expiresAt > request.time;
-      allow update: if flowSignedIn() && flowAdmin(resource.data.workspaceId)
-        && request.resource.data.workspaceId == resource.data.workspaceId
-        && request.resource.data.createdBy == resource.data.createdBy;
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(7, 'd');
+      allow update: if false;
       allow delete: if flowSignedIn() && flowAdmin(resource.data.workspaceId);
     }
   }

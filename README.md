@@ -43,10 +43,11 @@ Voir [FIREBASE_SETUP.md](FIREBASE_SETUP.md), [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYM
 ```sh
 npm test
 npm run test:rules
+npm run test:cloud-ui
 npm run test:ui
 node tests/ui-offline.cjs
 ```
 
-Les tests de règles utilisent exclusivement l’émulateur `demo-flow-v5`, jamais la base de production. Ils nécessitent Java compatible avec la version installée de Firebase CLI. Les tests navigateur nécessitent l’aperçu démarré et Chromium Playwright (`npx playwright install chromium`), ou Chrome installé avec `FLOW_BROWSER_CHANNEL=chrome`.
+Les tests de règles et d’intégration cloud utilisent exclusivement les émulateurs `demo-flow-v5`, jamais la base de production. Ils nécessitent Java compatible avec la version installée de Firebase CLI. Les tests navigateur nécessitent l’aperçu démarré et Chromium Playwright (`npx playwright install chromium`), ou Chrome installé avec `FLOW_BROWSER_CHANNEL=chrome`.
 
 Les notifications en arrière-plan restent désactivées lorsque `push-config.json` ne contient pas de service et de clé publique. Le code du service optionnel et ses instructions sont dans [push-server/README.md](push-server/README.md).

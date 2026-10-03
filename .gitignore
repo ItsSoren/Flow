@@ -6,6 +6,8 @@ artifacts/
 .wrangler/
 firebase-debug.log
 firestore-debug.log
+firebase-debug.*.log
+auth-debug.log
 ui-debug.log
 push-server/wrangler.toml
 .dev.vars

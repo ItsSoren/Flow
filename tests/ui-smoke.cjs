@@ -29,6 +29,11 @@ const today = new Date().toISOString().slice(0, 10);
       for (const name of ['transactions', 'recurring', 'goals', 'settings', 'dashboard']) {
         await page.locator(`[data-page="${name}"], [data-go="${name}"]`).filter({ visible: true }).first().click();
         assert(await page.locator(`#page-${name}`).isVisible(), `${name} navigates`);
+        if (name === 'settings' && viewport.width <= 700) {
+          await page.locator('#settingsSectionSelect').selectOption('settings-sharing');
+          assert(await page.locator('#settings-sharing').isVisible(), 'mobile settings section is reachable without scrolling through all categories');
+          await page.locator('#settingsSectionSelect').selectOption('settings-general');
+        }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
         assert(overflow <= 1, `${viewport.width}px ${name} overflows by ${overflow}px`);
       }

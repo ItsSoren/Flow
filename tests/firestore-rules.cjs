@@ -4,7 +4,7 @@ const { before, after, beforeEach, test } = require('node:test');
 const {
   initializeTestEnvironment, assertSucceeds, assertFails
 } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, serverTimestamp, writeBatch, Timestamp } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, limit, serverTimestamp, writeBatch, Timestamp } = require('firebase/firestore');
 const FlowCore = require('../flow-core.js');
 
 const projectId = 'demo-flow-v5';
@@ -96,4 +96,50 @@ test('Flow owner can create a scoped shared space and invite a read-only member'
   await assertFails(updateDoc(doc(guest, `flowWorkspaces/${workspaceId}/goals/summary`), { target: 1000 }));
   await assertFails(updateDoc(doc(guest, `flowWorkspaces/${workspaceId}/goals/summary`), { saved: 100, updatedAt: serverTimestamp() }));
   await assertFails(getDoc(doc(guest, 'flowUsers/owner')));
+});
+
+test('Flow sharing roles, scoped invite listing, removal and code revocation enforce real membership', { skip: !emulatorAvailable }, async () => {
+  const owner = environment.authenticatedContext('owner').firestore();
+  const guest = environment.authenticatedContext('guest').firestore();
+  const outsider = environment.authenticatedContext('outsider').firestore();
+  const workspaceId = 'managed-space'; const code = 'abcdefghijklmnopqrstuvwxyzABCDEF';
+  const base = `flowWorkspaces/${workspaceId}`;
+  const batch = writeBatch(owner);
+  batch.set(doc(owner, base), { ownerId: 'owner', name: 'Shared', kind: 'project', memberCount: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  batch.set(doc(owner, `${base}/members/owner`), { uid: 'owner', role: 'admin', joinedAt: serverTimestamp() });
+  batch.set(doc(owner, `flowUsers/owner/workspaces/${workspaceId}`), { workspaceId, role: 'admin', name: 'Shared' });
+  await assertSucceeds(batch.commit());
+  const invitation = { workspaceId, role: 'viewer', createdBy: 'owner', expiresAt: Timestamp.fromDate(new Date(Date.now() + 3600000)) };
+  await assertSucceeds(setDoc(doc(owner, 'flowInvites', code), invitation));
+  await assertFails(setDoc(doc(owner, 'flowInvites', code + 'bad'), { ...invitation, expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 86400000)) }));
+  await assertSucceeds(getDocs(query(collection(owner, 'flowInvites'), where('workspaceId', '==', workspaceId), limit(25))));
+  await assertFails(getDocs(collection(owner, 'flowInvites')));
+  await assertFails(getDocs(query(collection(guest, 'flowInvites'), where('workspaceId', '==', workspaceId), limit(25))));
+  await assertFails(setDoc(doc(outsider, `flowUsers/outsider/workspaces/${workspaceId}`), { workspaceId, role: 'admin', name: 'Forged' }));
+  const join = writeBatch(guest);
+  join.set(doc(guest, `${base}/members/guest`), { uid: 'guest', role: 'viewer', inviteCode: code, joinedAt: serverTimestamp() });
+  join.set(doc(guest, `flowUsers/guest/workspaces/${workspaceId}`), { workspaceId, role: 'viewer', name: 'Shared' });
+  await assertSucceeds(join.commit());
+  await assertFails(updateDoc(doc(guest, `${base}/members/guest`), { role: 'admin' }));
+  await assertFails(updateDoc(doc(owner, `${base}/members/owner`), { role: 'viewer' }));
+  await assertFails(updateDoc(doc(owner, `${base}/members/guest`), { uid: 'owner', role: 'member' }));
+  await assertSucceeds(updateDoc(doc(owner, `${base}/members/guest`), { role: 'member' }));
+  await assertFails(deleteDoc(doc(outsider, `flowUsers/guest/workspaces/${workspaceId}`)));
+  await assertSucceeds(deleteDoc(doc(owner, 'flowInvites', code)));
+  const remove = writeBatch(owner);
+  remove.delete(doc(owner, `${base}/members/guest`)); remove.delete(doc(owner, `flowUsers/guest/workspaces/${workspaceId}`));
+  await assertSucceeds(remove.commit());
+  await assertFails(getDoc(doc(guest, base)));
+  await assertFails(setDoc(doc(guest, `${base}/members/guest`), { uid: 'guest', role: 'viewer', inviteCode: code, joinedAt: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(owner, `${base}/members/owner`)));
+});
+
+test('Flow erasure advances revision so an old offline state cannot restore without conflict', { skip: !emulatorAvailable }, async () => {
+  const alice = environment.authenticatedContext('alice').firestore();
+  const ref = doc(alice, 'flowUsers/alice');
+  const old = FlowCore.getEmptyState(); old.accounts[0].openingBalance = 1000;
+  await assertSucceeds(setDoc(ref, personalDocument(old, 1)));
+  await assertSucceeds(setDoc(ref, personalDocument(FlowCore.getEmptyState(), 2)));
+  await assertFails(setDoc(ref, personalDocument(old, 2)));
+  assert.equal((await getDoc(ref)).data().personalState.accounts[0].openingBalance, 0);
 });

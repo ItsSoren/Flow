@@ -15,9 +15,10 @@ Projet existant : `novatasks-23d9d`. Garder le forfait Spark et préserver les d
 ```sh
 npm ci
 npm run test:rules
+npm run test:cloud-ui
 ```
 
-Les tests ciblent exclusivement l’émulateur `demo-flow-v5`, pas la production. Après comparaison et validation du fichier complet, publier les règles dans la console ou avec une session CLI explicitement autorisée :
+Les tests ciblent exclusivement les émulateurs `demo-flow-v5`, pas la production. Le test cloud navigateur nécessite `npm start` dans un autre terminal ; il vérifie le SDK réel avec Auth et Firestore locaux. Après comparaison et validation du fichier complet, publier les règles dans la console ou avec une session CLI explicitement autorisée :
 
 ```sh
 npx firebase-tools deploy --only firestore:rules --project novatasks-23d9d
