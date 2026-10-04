@@ -73,7 +73,7 @@ test('an absent remote document does not silently upload an old device cache', a
     currentQueue: () => ({ state: local, baseRevision: 9 }), localState: () => local,
     useful: () => true, displayConflict: value => { conflict = value; },
     saveQueue: () => { writes++; }, flushQueue: () => { writes++; },
-    unsubscribe: null, onSnapshot: () => () => {}, serialize: JSON.stringify
+    unsubscribe: null, onSnapshot: () => () => {}, serialize: JSON.stringify, status: () => {}, navigator: {onLine:true}
   });
   vm.runInContext(source.slice(source.indexOf('async function loadForUser('), source.indexOf('async function submitAuth(')), context);
   await context.loadForUser();

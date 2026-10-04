@@ -2,6 +2,31 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Core = require('../flow-core.js');
 
+test('overdue unconfirmed bills reduce spendable; confirmation changes balance immediately without double counting', () => {
+  const state=Core.normalizeState({accounts:[{id:'main',openingBalance:1000}],recurring:[{id:'bill',type:'expense',amount:100,label:'Loyer',accountId:'main',nextDate:'2026-09-04',frequency:'monthly'}],settings:{payday:28}});
+  const today=new Date('2026-10-04T12:00:00');
+  assert.equal(Core.getSpendableBreakdown(state,today).spendable,800);
+  assert.equal(Core.getSpendableBreakdown(state,today).overdueExpenseTotal,100);
+  const first=Core.confirmRecurringOccurrence(state,'bill','2026-09-04',today);
+  assert(first.ok);assert.equal(first.nextDate,'2026-10-04');
+  assert.equal(Core.getAccountBalanceCents(state,'main',today),90000);
+  assert.equal(Core.getSpendableBreakdown(state,today).spendable,800);
+  assert.equal(Core.confirmRecurringOccurrence(state,'bill','2026-09-04',today).reason,'stale');
+  assert.equal(state.transactions.length,1);
+  assert(Core.confirmRecurringOccurrence(state,'bill','2026-10-04',today).ok);
+  assert.equal(Core.getSpendableBreakdown(state,today).spendable,800);
+  assert.equal(Core.confirmRecurringOccurrence(state,'bill','2026-11-04',today).reason,'future');
+  assert.equal(state.transactions.length,2);
+});
+
+test('once-only confirmation removes the schedule and stale clicks cannot recreate it', () => {
+  const state=Core.normalizeState({accounts:[{id:'main',openingBalance:1000}],recurring:[{id:'bill',type:'expense',amount:50,label:'Facture',accountId:'main',nextDate:'2026-10-03',frequency:'once'}]});
+  const today=new Date('2026-10-04T12:00:00');
+  assert(Core.confirmRecurringOccurrence(state,'bill','2026-10-03',today).ok);
+  assert.equal(state.recurring.length,0);assert.equal(state.transactions.length,1);
+  assert.equal(Core.confirmRecurringOccurrence(state,'bill','2026-10-03',today).reason,'stale');
+});
+
 test('migrates legacy Flow amounts and account balances to version 5 cents-safe values', () => {
   const state = Core.normalizeState({
     accounts: [{ id: 'daily', name: 'Courant', balance: 125.25 }, { id: 'book', name: 'Livret', initialBalance: 50, type: 'savings' }],

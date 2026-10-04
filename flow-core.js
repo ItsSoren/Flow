@@ -64,6 +64,9 @@
         name: String(account.name || account.nom || `Compte ${index + 1}`).slice(0, 100),
         type,
         openingBalance: roundEuro(opening),
+        // Read-only compatibility for a V4 tab that has not refreshed yet.
+        // V5 always uses openingBalance; the alias never overrides it.
+        initialBalance: roundEuro(opening),
         createdAt: Number(account.createdAt || Date.now()),
         includeInSpendable: account.includeInSpendable == null ? type !== 'savings' : Boolean(account.includeInSpendable),
         reconciledAt: account.reconciledAt ? Number(account.reconciledAt) : null,
@@ -263,9 +266,10 @@
     const expenses = [];
     for (const recurring of state.recurring) {
       if (recurring.type !== 'expense' || !eligibleAccounts.some(account => account.id === recurring.accountId)) continue;
-      for (const date of monthlyOccurrences(recurring, today, nextSalary)) {
+      // Unconfirmed overdue bills are still liabilities, not free spending money.
+      for (const date of monthlyOccurrences(recurring, recurring.nextDate, nextSalary)) {
         const alreadyRecorded = state.transactions.some(transaction => transaction.type === 'expense' && (transaction.sourceAccountId || transaction.accountId) === recurring.accountId && transaction.date === date && (transaction.amountCents ?? cents(transaction.amount)) === (recurring.amountCents ?? cents(recurring.amount)) && transaction.label.trim().toLowerCase() === recurring.label.trim().toLowerCase());
-        if (date < nextSalary && !alreadyRecorded) expenses.push({ id: recurring.id, label: recurring.label, date, amountCents: recurring.amountCents ?? cents(recurring.amount) });
+        if (date < nextSalary && !alreadyRecorded) expenses.push({ id: recurring.id, label: recurring.label, date, overdue:date < today, amountCents: recurring.amountCents ?? cents(recurring.amount) });
       }
     }
     const scheduledExpenseCents = expenses.reduce((sum, item) => sum + item.amountCents, 0);
@@ -275,6 +279,7 @@
     return {
       today, nextSalaryDate: nextSalary, accountBalance: euros(balanceCents), accountBalanceCents: balanceCents,
       scheduledExpenses: expenses, scheduledExpenseTotal: euros(scheduledExpenseCents), scheduledExpenseCents,
+      overdueExpenseTotal: euros(expenses.filter(item=>item.overdue).reduce((sum,item)=>sum+item.amountCents,0)),
       reservations: state.reservations.filter(item => item.status === 'pending' || item.status === 'confirmed'),
       reservedTotal: euros(reservedCents), reservedCents, safetyBuffer: euros(bufferCents), safetyBufferCents: bufferCents,
       spendable: euros(availableCents), spendableCents: availableCents
@@ -346,7 +351,7 @@
     const nextSalaryDate = getNextSalaryDate(state, today);
     const accountReservations = activeReservedCents(state) - state.reservations.filter(item => ['pending', 'confirmed'].includes(item.status) && item.accountId !== accountId).reduce((sum, item) => sum + item.amountCents, 0);
     const accountScheduledExpenses = state.recurring.filter(item => item.type === 'expense' && item.accountId === accountId)
-      .flatMap(item => monthlyOccurrences(item, today, nextSalaryDate).filter(date => date < nextSalaryDate).map(date => ({ item, date })))
+      .flatMap(item => monthlyOccurrences(item, item.nextDate, nextSalaryDate).filter(date => date < nextSalaryDate).map(date => ({ item, date })))
       .filter(({ item, date }) => !state.transactions.some(transaction => transaction.type === 'expense' && (transaction.sourceAccountId || transaction.accountId) === accountId && transaction.date === date && (transaction.amountCents ?? cents(transaction.amount)) === (item.amountCents ?? cents(item.amount)) && transaction.label.trim().toLowerCase() === item.label.trim().toLowerCase()))
       .reduce((sum, { item }) => sum + (item.amountCents ?? cents(item.amount)), 0);
     const accountAvailable = getAccountBalanceCents(state, accountId, today) - accountReservations - accountScheduledExpenses;
@@ -498,6 +503,25 @@
     notification.read = Boolean(read); return true;
   }
 
+  function confirmRecurringOccurrence(state, recurringId, occurrenceDate, todayValue = new Date()) {
+    const recurring=state.recurring.find(item=>item.id===recurringId);
+    if(!recurring || recurring.nextDate!==occurrenceDate) return {ok:false,reason:'stale'};
+    if(occurrenceDate>isoDate(todayValue)) return {ok:false,reason:'future'};
+    const id=`rec:${recurring.id}:${occurrenceDate}`;
+    let transaction=state.transactions.find(item=>item.id===id);
+    const added=!transaction;
+    if(added){transaction={id,type:recurring.type,amount:recurring.amount,amountCents:recurring.amountCents??cents(recurring.amount),label:recurring.label,category:recurring.category,date:occurrenceDate,accountId:recurring.accountId,sourceAccountId:recurring.accountId,salary:recurring.type==='income'&&(recurring.salary||recurring.category==='salaire'),source:'recurring'};state.transactions.push(transaction);}
+    if(recurring.frequency==='once')state.recurring=state.recurring.filter(item=>item.id!==recurringId);
+    else {
+      const date=new Date(`${occurrenceDate}T12:00:00`),day=date.getDate();
+      if(recurring.frequency==='weekly')date.setDate(day+7);
+      else if(recurring.frequency==='yearly'){const month=date.getMonth();date.setDate(1);date.setFullYear(date.getFullYear()+1);date.setMonth(month);date.setDate(Math.min(day,new Date(date.getFullYear(),month+1,0).getDate()));}
+      else {date.setDate(1);date.setMonth(date.getMonth()+1);date.setDate(Math.min(day,new Date(date.getFullYear(),date.getMonth()+1,0).getDate()));}
+      recurring.nextDate=isoDate(date);
+    }
+    return {ok:true,added,transaction,nextDate:recurring.frequency==='once'?null:recurring.nextDate};
+  }
+
   function addReminder(state, item) {
     if (!item || !String(item.title || '').trim()) return { ok: false, reason: 'missing-title' };
     const reminder = { id: makeId('reminder'), title: String(item.title).trim(), date: isoDate(item.date || Date.now()), note: String(item.note || ''), kind: String(item.kind || 'custom'), createdAt: Date.now(), done: false };
@@ -511,6 +535,6 @@
     getEmptyState, normalizeState, getAccountBalance, getAccountBalanceCents, getTotalBalanceCents,
     getSpendableUntilSalary, getSpendableBreakdown, getNextSalaryDate, activeReservedCents,
     makeReservationCandidates, makeManualReservation, confirmDueReservations, resolveReservation, reconcileAccountBalance,
-    addImportedTransactions, stableFingerprint, markNotificationRead, addReminder, createNotification
+    addImportedTransactions, stableFingerprint, markNotificationRead, addReminder, createNotification, confirmRecurringOccurrence
   };
 });

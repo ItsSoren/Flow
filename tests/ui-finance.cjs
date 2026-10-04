@@ -5,7 +5,7 @@ const today = new Date().toISOString().slice(0, 10);
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: process.env.FLOW_BROWSER_CHANNEL || undefined });
   try {
-    for (const width of [1440, 390]) {
+    for (const width of [1440, 390, 320]) {
       const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
       const page = await context.newPage(); const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -29,6 +29,9 @@ const today = new Date().toISOString().slice(0, 10);
       await go('dashboard'); await page.locator('.quick.income').click();
       await page.locator('#txAmount').fill('1000'); await page.locator('#txLabel').fill('Salaire test');
       await page.locator('#txDate').fill(today); await page.locator('#txCategory').selectOption('salaire');
+      const favoriteBox=await page.locator('#txFavorite').boundingBox();
+      assert(favoriteBox.width<=20,'favorite checkbox cannot inherit full-width field styling');
+      assert(await page.locator('#transactionModal .modal').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'transaction modal has no horizontal overflow');
       await page.locator('#transactionForm .primary').click();
       assert.deepEqual(await balances(), [3000, 2900]);
       assert.equal(await page.evaluate(() => FlowApp.getState().reservations[0].status), 'pending');
@@ -47,6 +50,15 @@ const today = new Date().toISOString().slice(0, 10);
       assert.equal(await page.locator('[data-confirm-rec]').count(), 0);
       assert.equal(await page.evaluate(() => FlowApp.getState().transactions.length), 2, 'single confirmation creates exactly one transaction');
       assert.deepEqual(await balances(), [2975, 2975]);
+      const yesterday=new Date(`${today}T12:00:00`);yesterday.setDate(yesterday.getDate()-1);
+      await page.evaluate(date=>{const s=FlowApp.getState();s.recurring.push({id:'monthly-long',type:'expense',label:'Abonnement périodique avec un intitulé particulièrement long pour mobile',amount:25,accountId:'main',category:'factures',nextDate:date,frequency:'monthly'});FlowApp.applyRemoteState(s);},yesterday.toISOString().slice(0,10));
+      assert.deepEqual(await balances(),[2975,2950],'overdue charge is included before confirmation');
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'recurring rows cannot overflow mobile width');
+      await page.locator('[data-confirm-rec="monthly-long"]').dblclick();
+      assert.equal(await page.evaluate(()=>FlowApp.getState().transactions.length),3,'double tap records only the displayed occurrence');
+      assert.deepEqual(await balances(),[2950,2950],'confirmation updates balance immediately without double counting budget');
+      assert(await page.locator('[data-confirm-rec="monthly-long"]').isDisabled(),'future occurrence is not confirmed by repeated taps');
+      assert((await page.locator('#recurringList').textContent()).includes('Dernière confirmée'),'last confirmed occurrence is visible');
       await go('settings'); await page.locator('#addReminderButton').click();
       await page.locator('#reminderTitle').fill('Vérifier mon budget'); await page.locator('#reminderDate').fill(today);
       await page.locator('#reminderForm .primary').click();

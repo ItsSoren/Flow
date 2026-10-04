@@ -7,6 +7,9 @@ test('push payload cannot disclose a merchant, financial amount or foreign navig
   const handlers = {}, shown = [], opened = [];
   const self = { registration: { scope: 'https://example.com/Flow/', showNotification: async (title, options) => shown.push({ title, options }) }, addEventListener: (type, callback) => handlers[type] = callback, location: { origin: 'https://example.com' }, clients: { matchAll: async () => [], openWindow: async url => opened.push(url) } };
   vm.runInNewContext(fs.readFileSync(require.resolve('../service-worker.js'), 'utf8'), { self, URL, Response, fetch: () => { throw new Error('unexpected fetch'); } });
+  let activated = 0; self.skipWaiting = () => { activated++; };
+  handlers.message({ data:{type:'UNKNOWN'} }); assert.equal(activated,0);
+  handlers.message({ data:{type:'SKIP_WAITING'} }); assert.equal(activated,1,'the update button really activates the waiting worker');
   let completion;
   handlers.push({ data: { json: () => ({ title: 'PRIVATE', amount: 9999, url: 'https://evil.com' }) }, waitUntil: promise => completion = promise });
   await completion;

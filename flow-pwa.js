@@ -135,7 +135,8 @@
     if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
       try {
         registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './', updateViaCache: 'none' });
-        const offerUpdate = () => { if (!registration.waiting) return; const button = add('button', 'Actualiser Flōw', 'button secondary'); button.type = 'button'; button.addEventListener('click', () => { registration.waiting.postMessage({ type: 'SKIP_WAITING' }); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); }); };
+        let updateOffered = false;
+        const offerUpdate = () => { if (!registration.waiting || updateOffered) return; updateOffered = true; const button = add('button', 'Actualiser Flōw', 'button secondary'); button.type = 'button'; button.addEventListener('click', () => { navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); registration.waiting?.postMessage({ type: 'SKIP_WAITING' }); }); };
         offerUpdate(); registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', offerUpdate));
       } catch (_) { status.textContent = 'L’installation hors ligne n’est pas disponible ici. Les fonctions locales restent utilisables.'; }
     }

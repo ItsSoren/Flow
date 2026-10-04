@@ -1,6 +1,18 @@
 # V5 : preuves et portes de livraison
 
-Vérifications locales exécutées le 3 octobre 2026, sur Windows avec Chrome installé. Ce document ne certifie pas la configuration Firebase en production.
+Vérifications locales exécutées les 3 et 4 octobre 2026, sur Windows avec Chrome installé. Ce document ne certifie pas la configuration Firebase en production.
+
+## Correctif V5.0.1 — 4 octobre 2026
+
+- 46 tests unitaires passent. Comparaisons canoniques après normalisation : l’ordre des champs Firestore et le passage V4/V5 ne sont plus assimilés à un conflit. Un changement réel de solde, une file basée sur une révision dépassée ou un document effacé restent protégés.
+- Reprise automatique d’une file locale basée sur la révision cloud actuelle, sans confirmation superflue. Les échos optimistes Firebase ne sont pas considérés comme des sauvegardes cloud confirmées.
+- Régression avec SDK Firebase réel et émulateurs : rechargement d’un cache non vide, deux lectures d’un document V4 sans popup, soldes courant/épargne 1000/200 préservés et premier enregistrement V5 avec alias de solde initial lisible par V4. Cette compatibilité porte sur le solde initial ; elle ne rend pas V4 compatible avec toutes les fonctionnalités V5.
+- Confirmation par échéance datée et idempotente, affichage immédiat local, prévention des doubles appuis et indication de la dernière confirmation/prochaine échéance. Les échéances futures restent à venir ; leur date peut être modifiée pour un paiement anticipé.
+- Les charges dépassées non confirmées sont déduites du disponible ; leur confirmation ne crée pas une seconde déduction. Les réservations manuelles utilisent le même principe.
+- Contrôles UI sur PC, 390 px et 320 px : case favori réellement 18 px, formulaire et longue ligne récurrente sans débordement horizontal, double appui ne créant qu’une opération, budget et solde actualisés immédiatement. Les parcours généraux couvrent aussi 1024 px.
+- Bandeau discret indiquant « enregistré ici », « hors connexion » ou « synchronisé ». Nouveau cache 5.0.1, références de modules versionnées et activation du service worker d’attente sur demande de l’utilisateur ; pas d’effacement du stockage local.
+- Règles Firebase inchangées : aucune republication requise pour ce correctif. Aucune donnée personnelle réelle ni aucun compte Firebase de production modifié par les tests.
+- Test multi-appareil avec SDK réel et Firebase locaux : une facture mensuelle est confirmée hors connexion en un appui, le solde passe immédiatement de 995 à 945, l’étiquette indique l’attente, puis le second appareil retrouve exactement 945 après synchronisation. Un premier passage de la suite a expiré à l’attente de la première écriture ; la relance instrumentée a passé l’ensemble des contrôles. Aucun résultat d’un test échoué n’est compté comme réussite.
 
 ## Vérifié
 

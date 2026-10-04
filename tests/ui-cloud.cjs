@@ -33,9 +33,10 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
       await context.route('**/firebase-config.js', route => route.fulfill({ contentType: 'text/javascript', body: cfg }));
       await context.route('**/flow-cloud.js*', route => route.fulfill({ contentType: 'text/javascript', body: cloud }));
       const page = await context.newPage();
-      page.on('dialog', d => d.accept());
+      page.flowTestDialogs = [];
+      page.on('dialog', d => { page.flowTestDialogs.push(d.message()); return d.accept(); });
       page.on('pageerror', e => console.error('Browser error:', e.message));
-      page.on('console', msg => { if (msg.type() === 'error' && /CORS|Content Security|connect-src/.test(msg.text())) console.error('Emulator browser policy:', msg.text()); });
+      page.on('console', msg => { if (msg.type() === 'error' && /CORS|Content Security|connect-src/.test(msg.text())) console.error('Emulator browser policy:', msg.text()); if(/Flow cloud/.test(msg.text()))console.error('Emulator sync diagnostic:',msg.text()); });
       page.on('requestfailed', req => { if (req.url().includes('127.0.0.1:9099')) console.error('Auth emulator request:', req.failure()?.errorText); });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.FlowCloud, { timeout: 45000 });
@@ -57,10 +58,17 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
     await owner.locator('[data-page="dashboard"], [data-go="dashboard"]').filter({ visible: true }).first().click();
     await owner.locator('.quick.income').click(); await owner.locator('#txAmount').fill('123'); await owner.locator('#txLabel').fill('Income emulator');
     await owner.locator('#transactionForm .primary').click();
-    await owner.waitForFunction(() => FlowCloud.getKnownRevision() >= 1);
+    await owner.waitForFunction(() => FlowCloud.getKnownRevision() >= 1).catch(async error=>{console.error('Initial sync diagnostic (test data only):',await owner.evaluate(()=>({status:document.getElementById('cloudStatus').textContent,revision:FlowCloud.getKnownRevision(),transactions:FlowApp.getState().transactions.length,queue:localStorage.getItem(`flow_cloud_pending_v1:${FlowCloud.getCurrentUser().uid}`)})));throw error;});
     const otherDevice = await device(email, false, true);
     await otherDevice.waitForFunction(() => FlowApp.getState().transactions.some(t => t.label === 'Income emulator'));
     assert.equal(await otherDevice.evaluate(() => FlowCore.getAccountBalance(FlowApp.getState(), 'main')), 123);
+    // A nonempty per-user cache must not prompt just because Firestore reorders maps.
+    const promptsBeforeReload = owner.flowTestDialogs.length;
+    await owner.reload({waitUntil:'domcontentloaded'});
+    await owner.waitForFunction(() => window.FlowCloud?.getKnownRevision() >= 1 && document.getElementById('cloudStatus').textContent.startsWith('Synchronisé'));
+    assert.equal(owner.flowTestDialogs.length,promptsBeforeReload,'unchanged real-SDK cache reload must not prompt');
+    assert.equal(await owner.evaluate(() => FlowCore.getAccountBalance(FlowApp.getState(),'main')),123);
+    await owner.locator('[data-page="settings"], [data-go="settings"]').filter({visible:true}).first().click();
     await owner.locator('[data-page="settings"], [data-go="settings"]').filter({ visible: true }).first().click();
     const create = owner.locator('[data-share-form="create"]');
     await create.locator('[name="name"]').fill('Trip emulator'); await create.locator('[name="amount"]').fill('500'); await create.locator('button').click();
@@ -120,6 +128,47 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
     await owner.locator('#cloudAuthModal .close').click();
     await owner.locator('#cloudSignIn').click();
     assert.equal(await owner.locator('#cloudAuthError').textContent(), '', 'a reopened dialog clears stale messages');
+    // Seed only the local demo emulator with a realistic pre-V5 document.
+    const legacyDevice = await device(`legacy-${suffix}@example.test`,true);
+    const legacyUid = await legacyDevice.evaluate(() => FlowCloud.getCurrentUser().uid);
+    const legacyState={version:4.2,activeAccountId:'main',accounts:[{id:'main',name:'Compte principal',initialBalance:1000,createdAt:1},{id:'savings',name:'Épargne',initialBalance:0,createdAt:1}],transactions:[{id:'saved',type:'income',amount:200,label:'Épargne',category:'autre',date:'2026-09-01',accountId:'savings'}],recurring:[],goals:[],settings:{mode:'dark',palette:'flow'},migratedFrom:null};
+    const firestoreValue=value=>value===null?{nullValue:null}:typeof value==='string'?{stringValue:value}:typeof value==='number'?{doubleValue:value}:typeof value==='boolean'?{booleanValue:value}:Array.isArray(value)?{arrayValue:{values:value.map(firestoreValue)}}:{mapValue:{fields:Object.fromEntries(Object.entries(value).map(([k,v])=>[k,firestoreValue(v)]))}};
+    const emulatorHost=process.env.FIRESTORE_EMULATOR_HOST;
+    assert(/^127\.0\.0\.1:\d+$/.test(emulatorHost),'fixture seeding is restricted to loopback');
+    const seeded=await fetch(`http://${emulatorHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowUsers/${legacyUid}`,{method:'PATCH',headers:{Authorization:'Bearer owner','Content-Type':'application/json'},body:JSON.stringify({fields:{personalState:firestoreValue(legacyState),clientUpdatedAt:{integerValue:'1'},schemaVersion:{integerValue:'1'}}})});
+    assert(seeded.ok,await seeded.text());
+    const legacyPromptCount=legacyDevice.flowTestDialogs.length;
+    for(let reload=0;reload<2;reload++){
+      await legacyDevice.reload({waitUntil:'domcontentloaded'});
+      await legacyDevice.waitForFunction(()=>window.FlowApp?.getState().accounts.length===2 && document.getElementById('cloudStatus').textContent.startsWith('Synchronisé'));
+      assert.equal(await legacyDevice.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),1000);
+      assert.equal(await legacyDevice.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'savings')),200);
+    }
+    assert.equal(legacyDevice.flowTestDialogs.length,legacyPromptCount,'legacy cloud migration must not repeatedly prompt');
+    await legacyDevice.locator('[data-page="dashboard"], [data-go="dashboard"]').filter({visible:true}).first().click();
+    await legacyDevice.locator('.quick.expense').click();await legacyDevice.locator('#txAmount').fill('5');await legacyDevice.locator('#txLabel').fill('After legacy migration');await legacyDevice.locator('#transactionForm .primary').click();
+    await legacyDevice.waitForFunction(()=>FlowCloud.getKnownRevision()===1);
+    const rawMigrated=await fetch(`http://${emulatorHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowUsers/${legacyUid}`,{headers:{Authorization:'Bearer owner'}}).then(r=>r.json());
+    const legacyAlias=rawMigrated.fields.personalState.mapValue.fields.accounts.arrayValue.values[0].mapValue.fields.initialBalance;
+    assert.equal(Number(legacyAlias.doubleValue ?? legacyAlias.integerValue),1000,'a V4 reader keeps the opening balance after a V5 write');
+    assert(!rawMigrated.fields.clientUpdatedAt,'the V5 write replaces obsolete document metadata');
+    // Confirming a periodic bill is immediate even if the cloud is unreachable.
+    await legacyDevice.locator('[data-page="recurring"], [data-go="recurring"]').filter({visible:true}).first().click();
+    await legacyDevice.locator('[data-open="recurring"]').click();
+    await legacyDevice.locator('#recLabel').fill('Periodic offline bill');await legacyDevice.locator('#recAmount').fill('50');
+    const billDate=new Date();billDate.setDate(billDate.getDate()-1);
+    await legacyDevice.locator('#recDate').fill(billDate.toISOString().slice(0,10));await legacyDevice.locator('#recFrequency').selectOption('monthly');await legacyDevice.locator('#recurringForm .primary').click();
+    await legacyDevice.waitForFunction(()=>FlowCloud.getKnownRevision()===2);
+    await legacyDevice.context().setOffline(true);
+    await legacyDevice.locator('[data-confirm-rec]').click();
+    assert.equal(await legacyDevice.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),945,'offline confirmation is immediate locally');
+    assert((await legacyDevice.locator('#syncIndicator').textContent()).includes('Hors connexion'),'the user sees the pending cloud state');
+    await legacyDevice.context().setOffline(false);
+    await legacyDevice.waitForFunction(()=>FlowCloud.getKnownRevision()===3 && document.getElementById('syncIndicator').textContent==='Synchronisé');
+    const migratedMobile=await device(`legacy-${suffix}@example.test`,false,true);
+    await migratedMobile.waitForFunction(()=>FlowApp.getState().transactions.length===3);
+    assert.equal(await migratedMobile.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),945,'single periodic confirmation survives synchronization to mobile');
+    console.log('Regression: real-SDK nonempty cache reload, repeated V4 cloud migration, balances 1000/200 and V4-compatible alias after V5 commit: PASS');
     console.log('Real SDK/local emulators: signup, two-device sync, UID isolation, shared viewer/member, progress, invite revocation, member removal, online/offline multi-device erasure, sign-out/login mode, password-reset UI: PASS');
   } finally { for (const context of contexts) await context.close(); await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

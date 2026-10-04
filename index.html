@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5.0.0">
+  <link rel="stylesheet" href="styles.css?v=5.0.1">
 </head>
 <body>
   <header class="topbar">
@@ -40,6 +40,7 @@
   </header>
 
   <main class="app-shell">
+    <div id="syncIndicator" class="sync-indicator" role="status" aria-live="polite">Enregistré sur cet appareil</div>
     <section class="page active" id="page-dashboard">
       <div class="page-intro dashboard-intro">
         <div><span class="eyebrow" id="greeting">Bonjour</span><h1>Une vue claire, tout de suite.</h1><p>Ton solde, tes prochaines charges et ce que tu peux dépenser.</p></div>
@@ -194,7 +195,7 @@
         <details data-help="ajouter dépense revenu opération montant catégorie"><summary><svg><use href="assets/icons.svg#i-plus"/></svg><b>Ajouter une dépense ou un revenu</b></summary><p>Le bouton <strong>Ajouter</strong> ouvre une opération. Choisis dépense, revenu ou transfert, saisis le montant et le compte. Tu peux ajouter une note pour te souvenir du contexte.</p></details>
         <details data-help="solde argent disponible salaire calcul charges récurrents réservations"><summary><svg><use href="assets/icons.svg#i-wallet"/></svg><b>Comprendre le disponible jusqu’au salaire</b></summary><p>Flōw part du solde réel de tes comptes, puis déduit les charges prévues avant ta prochaine paie, ton coussin de sécurité et les sommes que tu as choisi de réserver. Ce calcul t’aide à te repérer, il ne réalise aucun mouvement bancaire.</p></details>
         <details data-help="salaire paie date jour revenu récurrent"><summary><svg><use href="assets/icons.svg#i-calendar"/></svg><b>Indiquer ma prochaine paie</b></summary><p>Dans Réglages → Disponible, choisis ton jour habituel de paie. Ajoute aussi le salaire dans À venir pour que Flōw puisse afficher la date et les prévisions de revenu.</p></details>
-        <details data-help="récurrent prévision abonnement salaire facture valider"><summary><svg><use href="assets/icons.svg#i-repeat"/></svg><b>Gérer salaires, factures et abonnements</b></summary><p>Dans À venir, ajoute les paiements attendus. Quand un mouvement est réellement passé, valide-le pour le retrouver dans tes opérations.</p></details>
+        <details data-help="récurrent prévision abonnement salaire facture valider confirmer retard échéance"><summary><svg><use href="assets/icons.svg#i-repeat"/></svg><b>Gérer salaires, factures et abonnements</b></summary><p>Dans À venir, ajoute les paiements attendus. Confirme chaque échéance réellement passée : elle apparaît immédiatement dans tes opérations, même sans réseau. La date suivante et la dernière confirmation sont affichées. Une facture dépassée mais non confirmée reste déduite du disponible ; la confirmation ne la déduit pas deux fois. Une échéance future n’est pas encore confirmable : si le paiement est passé plus tôt, modifie sa date. Flōw ne déclenche aucun prélèvement bancaire.</p></details>
         <details data-help="projet objectif épargne réservation auto fixe pourcentage refuser libérer prorata"><summary><svg><use href="assets/icons.svg#i-target"/></svg><b>Réserver de l’argent pour un projet</b></summary><p>Un projet peut réserver un montant fixe ou une part de ton salaire. Flōw t’explique le calcul, laisse quelques minutes pour refuser une nouvelle réservation et permet de libérer une somme ensuite. Cela ne déclenche aucun virement.</p></details>
         <details data-help="comptes courant épargne livret solde transfert modifier supprimer"><summary><svg><use href="assets/icons.svg#i-wallet"/></svg><b>Organiser plusieurs comptes</b></summary><p>Dans Réglages → Comptes, distingue compte courant, épargne et espèces. Un transfert entre deux comptes déplace le montant dans les calculs de Flōw sans contacter ta banque.</p></details>
         <details data-help="importer relevé csv banque fichier opérations solde"><summary><svg><use href="assets/icons.svg#i-file"/></svg><b>Importer un relevé bancaire</b></summary><p>Choisis un relevé CSV, vérifie les colonnes et les opérations détectées, puis confirme l’import. Tu gardes le contrôle sur les lignes ajoutées.</p></details>
@@ -213,11 +214,11 @@
 
   <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle"><div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="flow-core.js?v=5.0.0"></script>
-  <script src="flow-backup.js?v=5.0.0"></script>
-  <script src="app.js?v=5.0.0"></script>
-  <script type="module" src="bank-import.js?v=5.0.0"></script>
-  <script type="module" src="flow-cloud.js?v=5.0.0"></script>
-  <script type="module" src="flow-pwa.js?v=5.0.0"></script>
+  <script src="flow-core.js?v=5.0.1"></script>
+  <script src="flow-backup.js?v=5.0.1"></script>
+  <script src="app.js?v=5.0.1"></script>
+  <script type="module" src="bank-import.js?v=5.0.1"></script>
+  <script type="module" src="flow-cloud.js?v=5.0.1"></script>
+  <script type="module" src="flow-pwa.js?v=5.0.1"></script>
 </body>
 </html>

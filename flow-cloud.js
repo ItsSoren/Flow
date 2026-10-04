@@ -9,7 +9,7 @@ import {
   writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp, query, where, limit
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit } from "./flow-sync-core.mjs";
+import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit, canonicalStateKey } from "./flow-sync-core.mjs?v=5.0.1";
 
 // Flow deliberately shares the Firebase project/Auth identities with Sōlo, while
 // all of its financial data stays in the flowUsers namespace.
@@ -40,6 +40,8 @@ const useful = state => window.FlowApp?.hasUsefulData?.(state)
 function status(message, connected = false) {
   const el = $("cloudStatus");
   if (el) el.textContent = message;
+  const indicator=$("syncIndicator");
+  if(indicator){indicator.textContent=!connected?'Enregistré sur cet appareil': /Synchronisé|Mis à jour depuis/.test(message)?'Synchronisé':/Hors connexion/.test(message)?'Hors connexion · enregistré ici':/indisponible|dépasse|ne peut pas/.test(message)?'À synchroniser · enregistré ici':/copie locale|Version locale/.test(message)?'Version choisie · voir les réglages':/Connexion à/.test(message)?'Connexion en cours…':'Enregistré ici · synchronisation en cours…';indicator.title=message;indicator.dataset.pending=connected&&!/Synchronisé|Mis à jour depuis/.test(message)?'true':'false';}
   const label = $("cloudAccountLabel");
   const button = $("cloudAccountButton");
   if (label) label.textContent = connected ? (user?.displayName || user?.email?.split("@")[0] || "Connecté") : "Connexion";
@@ -76,7 +78,7 @@ function authError(error) {
   };
   return messages[error?.code] || "Impossible de terminer cette action pour le moment.";
 }
-function serialize(state) { return JSON.stringify(state); }
+function serialize(state) { return canonicalStateKey(state, window.FlowCore?.normalizeState); }
 function currentQueue() {
   if (!user) return null;
   try { return JSON.parse(localStorage.getItem(queueKey(user.uid)) || "null"); }
@@ -224,7 +226,14 @@ async function loadForUser(guestCandidate = null) {
   const local = localState();
   if (remote?.personalState) {
     if (pending?.state) {
-      if (serialize(pending.state) === serialize(remote.personalState)) clearQueue(pending.state);
+      if (serialize(pending.state) === serialize(remote.personalState)) {
+        clearQueue(pending.state);
+        window.FlowApp?.applyRemoteState?.(remote.personalState);
+      } else if (pending.baseRevision === knownRevision) {
+        // Offline edits based on the current revision are not a conflict.
+        window.FlowApp?.applyRemoteState?.(pending.state);
+        flushQueue();
+      }
       else displayConflict({ remoteState: remote.personalState, revision: knownRevision });
     } else if (serialize(local) !== serialize(remote.personalState)) {
       if (useful(local)) displayConflict({ remoteState: remote.personalState, revision: knownRevision });
@@ -238,10 +247,13 @@ async function loadForUser(guestCandidate = null) {
     saveQueue(guestCandidate, knownRevision);
     flushQueue();
   }
+  if (!currentQueue()) status(navigator.onLine?"Synchronisé · tes données sont disponibles sur tes appareils.":"Hors connexion · données enregistrées sur cet appareil.", true);
   if (!user || user.uid !== uid) return;
   unsubscribe?.();
   unsubscribe = onSnapshot(stateRef(uid), snapshotUpdate => {
     if (!user || user.uid !== uid || erasingUid === uid) return;
+    // An optimistic SDK echo is not acknowledgement of a committed cloud save.
+    if(snapshotUpdate.metadata?.hasPendingWrites || snapshotUpdate.metadata?.fromCache && currentQueue()) return;
     if (!snapshotUpdate.exists()) {
       if (knownRevision > 0) displayConflict({ remoteState: window.FlowApp?.getEmptyState?.(), revision: 0 });
       return;
