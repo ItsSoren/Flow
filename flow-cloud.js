@@ -9,7 +9,7 @@ import {
   writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp, query, where, limit, deleteField, increment, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit, canonicalStateKey } from "./flow-sync-core.mjs?v=5.0.2";
+import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit, canonicalStateKey } from "./flow-sync-core.mjs?v=5.0.3";
 
 // Flow deliberately shares the Firebase project/Auth identities with Sōlo, while
 // all of its financial data stays in the flowUsers namespace.

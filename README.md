@@ -1,8 +1,12 @@
-# Flōw — V5.0.2
+# Flōw — V5.0.3
 
 Une application de finances personnelles locale, avec synchronisation Firebase facultative. Le dépôt reste nommé **Flow** ; le nom affiché est **Flōw**.
 
-## Mise à jour V5.0.2
+## Mise à jour V5.0.3
+
+Les liens directs vers une rubrique des réglages ouvrent maintenant Réglages puis amènent à la rubrique demandée. Le choix de rubrique sur mobile met aussi à jour l’adresse, pour pouvoir retrouver ou partager le bon écran.
+
+### V5.0.2
 
 Corrections du budget, des confirmations de charges, du rapprochement, des imports, des réservations et de l’affichage mobile. Les clés de stockage V5 et le format personnel sont conservés ; aucune réinitialisation des comptes n’est effectuée. Un résumé figure dans les notifications.
 
