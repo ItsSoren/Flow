@@ -10,6 +10,9 @@
     if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !['accounts', 'transactions', 'operations', 'goals', 'objectifs', 'recurring', 'revenus'].some(key => Array.isArray(raw[key]))) throw new Error('Cette sauvegarde ne contient pas de données Flow reconnues.');
     if (Number(raw.version) > 5) throw new Error('Cette sauvegarde vient d’une version plus récente de Flow.');
     for (const value of Object.values(raw)) if (Array.isArray(value) && value.length > 20000) throw new Error('Trop d’éléments dans cette sauvegarde.');
+    for (const key of ['accounts', 'transactions', 'operations', 'goals', 'objectifs', 'recurring', 'revenus', 'reservations', 'reservedContributions', 'notifications', 'reminders']) {
+      if (Array.isArray(raw[key]) && raw[key].some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new Error(`La liste « ${key} » contient une entrée invalide.`);
+    }
     return raw;
   }
   function parse(text) {

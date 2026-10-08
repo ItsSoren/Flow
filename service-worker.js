@@ -1,10 +1,10 @@
 'use strict';
-const CACHE = 'flow-shell-v5-5.0.1-20261004';
+const CACHE = 'flow-shell-v5-5.0.2-20261008';
 // Activate only when the user presses the update button, then reload that tab.
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
-const SHELL = ['index.html', 'styles.css', 'legal.css', 'app.js', 'flow-core.js', 'flow-backup.js', 'flow-sync-core.mjs', 'bank-import.js', 'flow-pwa.js', 'flow-cloud.js', 'firebase-config.js', 'push-config.json', 'manifest.webmanifest', 'privacy.html', 'credits.html', 'assets/icons.svg', 'assets/mobile-icon-192.png', 'assets/mobile-icon-512.png', 'assets/logo-mark.svg', 'assets/favicon.svg'];
+const SHELL = ['index.html', 'styles.css', 'legal.css', 'dialog-focus.js', 'app.js', 'flow-core.js', 'flow-backup.js', 'flow-sync-core.mjs', 'bank-import.js', 'flow-pwa.js', 'flow-cloud.js', 'firebase-config.js', 'push-config.json', 'manifest.webmanifest', 'privacy.html', 'credits.html', 'assets/icons.svg', 'assets/mobile-icon-192.png', 'assets/mobile-icon-512.png', 'assets/logo-mark.svg', 'assets/favicon.svg'];
 self.addEventListener('install', event => event.waitUntil((async () => {
   const cache = await caches.open(CACHE);
   await Promise.all(SHELL.map(async path => { try { const response = await fetch(new URL(path, self.registration.scope), { cache: 'reload' }); if (response.ok) await cache.put(new URL(path, self.registration.scope), response); } catch (_) { /* Retry lazily without preventing app use. */ } }));

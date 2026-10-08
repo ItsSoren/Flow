@@ -72,7 +72,7 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
     await owner.locator('[data-page="settings"], [data-go="settings"]').filter({ visible: true }).first().click();
     const create = owner.locator('[data-share-form="create"]');
     await create.locator('[name="name"]').fill('Trip emulator'); await create.locator('[name="amount"]').fill('500'); await create.locator('button').click();
-    await owner.locator('.sharing-space').waitFor();
+    await owner.locator('.sharing-space').waitFor().catch(async error=>{console.error('Create sharing diagnostic:',await owner.locator('#cloudSharingMount').innerText());throw error;});
     await owner.locator('.sharing-space').getByRole('button', { name: 'Inviter · lecture seule' }).click();
     await owner.waitForFunction(() => document.querySelector('[data-invite-output]')?.textContent.includes('Code valable'));
     const code = (await owner.locator('[data-invite-output]').textContent()).match(/Code valable 7 jours : ([A-Za-z0-9_-]+)/)[1];
@@ -82,23 +82,46 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
     await guest.locator('.sharing-space').waitFor();
     assert(await guest.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'mobile sharing has no horizontal overflow');
     assert.equal(await guest.locator('.sharing-space').getByRole('button', { name: 'Mettre à jour' }).count(), 0, 'viewer has no edit action');
+    const migrationHost=process.env.FIRESTORE_EMULATOR_HOST;
+    assert(/^127\.0\.0\.1:\d+$/.test(migrationHost),'legacy sharing fixture must stay on loopback');
+    const guestUid=await guest.evaluate(()=>FlowCloud.getCurrentUser().uid);
+    const indexResponse=await fetch(`http://${migrationHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowUsers/${guestUid}/workspaces`,{headers:{Authorization:'Bearer owner'}}).then(response=>response.json());
+    const workspaceId=indexResponse.documents[0].name.split('/').at(-1);
+    const legacyMember=await fetch(`http://${migrationHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowWorkspaces/${workspaceId}/members/${guestUid}?updateMask.fieldPaths=inviteCode`,{method:'PATCH',headers:{Authorization:'Bearer owner','Content-Type':'application/json'},body:JSON.stringify({fields:{inviteCode:{stringValue:code}}})});
+    assert(legacyMember.ok,await legacyMember.text());
+    await guest.locator('[data-share="refresh"]').click();
+    await guest.locator('.sharing-space').getByText(/Ancien accès à sécuriser/).waitFor();
+    await owner.locator('[data-share="refresh"]').click();
+    try { await owner.getByRole('button',{name:'Sécuriser les anciennes invitations',includeHidden:true}).waitFor({state:'attached'}); }
+    catch(error){console.error('Legacy migration UI diagnostic:',await owner.locator('[data-share-list]').innerText());throw error;}
+    await owner.locator('.sharing-space details summary').click();
+    await owner.getByRole('button',{name:'Sécuriser les anciennes invitations'}).click();
+    await owner.waitForFunction(()=>![...document.querySelectorAll('.sharing-space button')].some(button=>button.textContent==='Sécuriser les anciennes invitations'));
+    const cleaned=await fetch(`http://${migrationHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowWorkspaces/${workspaceId}/members/${guestUid}`,{headers:{Authorization:'Bearer owner'}}).then(response=>response.json());
+    assert(!cleaned.fields.inviteCode,'legacy invitation removed without deleting membership');
+    assert.equal((await fetch(`http://${migrationHost}/v1/projects/demo-flow-v5/databases/(default)/documents/flowInvites/${code}`,{headers:{Authorization:'Bearer owner'}})).status,404,'exposed invitation revoked');
+    await guest.locator('[data-share="refresh"]').click();
+    await guest.waitForFunction(()=>![...document.querySelectorAll('.sharing-space p')].some(element=>element.textContent.includes('Ancien accès à sécuriser')));
+    await owner.locator('.sharing-space').getByRole('button',{name:'Inviter · lecture seule'}).click();
+    await owner.waitForFunction(()=>document.querySelector('[data-invite-output]')?.textContent.includes('Code valable'));
     await owner.locator('[data-share="refresh"]').click();
     await owner.waitForFunction(() => [...document.querySelectorAll('.sharing-space details button')].some(b => b.textContent === 'Autoriser la modification'));
-    const management = owner.locator('.sharing-space details'); await management.locator('summary').click();
-    await management.getByRole('button', { name: 'Autoriser la modification' }).click();
+    const management = owner.locator('.sharing-space details');
+    if(!await management.evaluate(details=>details.open)) await management.locator('summary').click();
+    await owner.getByRole('button',{name:'Autoriser la modification'}).click();
     await owner.waitForFunction(() => [...document.querySelectorAll('.sharing-space details button')].some(b => b.textContent === 'Passer en lecture seule'));
     await guest.locator('[data-share="refresh"]').click();
     await guest.locator('.sharing-space').getByRole('button', { name: 'Mettre à jour' }).waitFor();
     await guest.locator('#settings-sharing').screenshot({ path: path.join(root, 'artifacts/cloud-sharing-mobile.png') });
     await guest.locator('.sharing-space input[name="saved"]').fill('25'); await guest.locator('.sharing-space').getByRole('button', { name: 'Mettre à jour' }).click();
-    await guest.waitForFunction(() => document.querySelector('[data-share-status]')?.textContent.includes('mise à jour'));
+    await guest.waitForFunction(() => document.querySelector('[data-share-status]')?.textContent.includes('Modification enregistrée'));
     await owner.locator('[data-share="refresh"]').click();
     await owner.waitForFunction(() => [...document.querySelectorAll('.sharing-space p')].some(p => p.textContent.includes('25,00')));
-    await owner.locator('.sharing-space details summary').click();
+    if(!await management.evaluate(details=>details.open)) await management.locator('summary').click();
     await owner.locator('#settings-sharing').screenshot({ path: path.join(root, 'artifacts/cloud-sharing-desktop.png') });
     await owner.locator('.sharing-space').getByRole('button', { name: 'Révoquer le code' }).click();
     await owner.waitForFunction(() => ![...document.querySelectorAll('.sharing-space details button')].some(b => b.textContent === 'Révoquer le code'));
-    await owner.locator('.sharing-space details summary').click();
+    if(!await management.evaluate(details=>details.open)) await management.locator('summary').click();
     await owner.locator('.sharing-space').getByRole('button', { name: 'Retirer', exact: true }).click();
     await owner.waitForFunction(() => ![...document.querySelectorAll('.sharing-space details button')].some(b => b.textContent === 'Retirer'));
     await guest.locator('[data-share="refresh"]').click();
@@ -168,6 +191,51 @@ const cfg = 'export const firebaseConfig={projectId:"demo-flow-v5",apiKey:"demo-
     const migratedMobile=await device(`legacy-${suffix}@example.test`,false,true);
     await migratedMobile.waitForFunction(()=>FlowApp.getState().transactions.length===3);
     assert.equal(await migratedMobile.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),945,'single periodic confirmation survives synchronization to mobile');
+    // Diagnose "saved upcoming expense, nothing happens" with the actual SDK.
+    const futureDate = new Date(); futureDate.setDate(futureDate.getDate() + 35);
+    const futureLabel = 'Audit upcoming expense main';
+    await legacyDevice.locator('[data-open="recurring"]').click();
+    await legacyDevice.locator('#recLabel').fill(futureLabel);
+    await legacyDevice.locator('#recAmount').fill('42.50');
+    await legacyDevice.locator('#recDate').fill(futureDate.toISOString().slice(0,10));
+    await legacyDevice.locator('#recAccount').selectOption('main');
+    await legacyDevice.locator('#recurringForm .primary').click();
+    assert.equal(await legacyDevice.locator('#recurringModal').isVisible(), false);
+    assert.equal(await legacyDevice.locator('#recurringList').getByText(futureLabel,{exact:true}).count(),1);
+    await legacyDevice.waitForFunction(()=>FlowCloud.getKnownRevision()===4);
+    await migratedMobile.waitForFunction(()=>FlowApp.getState().recurring.some(r=>r.label==='Audit upcoming expense main'&&r.amount===42.5));
+    const promptsBeforeFutureReload = legacyDevice.flowTestDialogs.length;
+    await legacyDevice.reload({waitUntil:'domcontentloaded'});
+    await legacyDevice.waitForFunction(()=>FlowCloud?.getKnownRevision()===4&&document.getElementById('cloudStatus').textContent.startsWith('Synchronisé'));
+    assert.equal(await legacyDevice.locator('#recurringList').getByText(futureLabel,{exact:true}).count(),1);
+    assert.equal(legacyDevice.flowTestDialogs.length,promptsBeforeFutureReload);
+    // Coordinated-rollout regression: the new site must remain usable while
+    // production still runs the exact rules from V5.0.1. No legacy join fallback.
+    const {initializeTestEnvironment}=require('@firebase/rules-unit-testing');
+    const [rulesHost,rulesPort]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
+    const oldEnvironment=await initializeTestEnvironment({projectId:'demo-flow-v5',firestore:{host:rulesHost,port:Number(rulesPort),rules:fs.readFileSync(path.join(root,'tests/fixtures/firestore-v501.rules'),'utf8')}});
+    try {
+      await legacyDevice.reload({waitUntil:'domcontentloaded'});
+      await legacyDevice.waitForFunction(()=>window.FlowCloud?.getKnownRevision()===4&&document.getElementById('cloudStatus').textContent.startsWith('Synchronisé'));
+      await legacyDevice.locator('[data-page="settings"], [data-go="settings"]').filter({visible:true}).first().click();
+      await legacyDevice.locator('[data-share-list]').getByText(/Mise à jour du partage en attente/).waitFor();
+      assert(await legacyDevice.locator('[data-share-form="join"] button').isDisabled());
+      assert(await legacyDevice.locator('[data-share-form="create"] button').isDisabled());
+      assert.equal(await legacyDevice.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),945);
+      assert.equal(await legacyDevice.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'savings')),200);
+      assert.equal(await legacyDevice.evaluate(()=>FlowApp.getState().transactions.length),3);
+      await legacyDevice.locator('[data-page="dashboard"], [data-go="dashboard"]').filter({visible:true}).first().click();
+      await legacyDevice.locator('.quick.income').click();await legacyDevice.locator('#txAmount').fill('7.25');await legacyDevice.locator('#txLabel').fill('New site on old rules');await legacyDevice.locator('#transactionForm .primary').click();
+      await legacyDevice.waitForFunction(()=>FlowCloud.getKnownRevision()===5);
+      await migratedMobile.waitForFunction(()=>FlowApp.getState().transactions.length===4);
+      assert.equal(await migratedMobile.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'main')),952.25);
+      assert.equal(await migratedMobile.evaluate(()=>FlowCore.getAccountBalance(FlowApp.getState(),'savings')),200);
+      console.log('V5.0.1 production-rules compatibility: existing accounts/history preserved, personal write and mobile sync pass, insecure sharing joins disabled: PASS');
+    } finally {
+      const restored=await initializeTestEnvironment({projectId:'demo-flow-v5',firestore:{host:rulesHost,port:Number(rulesPort),rules:fs.readFileSync(path.join(root,'firestore.rules'),'utf8')}});
+      await restored.cleanup();await oldEnvironment.cleanup();
+    }
+    console.log('Upcoming expense: immediate UI, cloud revision, second device and reload persistence: PASS');
     console.log('Regression: real-SDK nonempty cache reload, repeated V4 cloud migration, balances 1000/200 and V4-compatible alias after V5 commit: PASS');
     console.log('Real SDK/local emulators: signup, two-device sync, UID isolation, shared viewer/member, progress, invite revocation, member removal, online/offline multi-device erasure, sign-out/login mode, password-reset UI: PASS');
   } finally { for (const context of contexts) await context.close(); await browser.close(); }

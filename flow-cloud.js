@@ -6,10 +6,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, doc, collection, getDoc, getDocs, setDoc, deleteDoc,
-  writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp, query, where, limit
+  writeBatch, onSnapshot, runTransaction, serverTimestamp, Timestamp, query, where, limit, deleteField, increment, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit, canonicalStateKey } from "./flow-sync-core.mjs?v=5.0.1";
+import { queueKeyForUser, conflictKeyForUser, reconcileCommittedQueue, shouldFlushAfterCommit, canonicalStateKey } from "./flow-sync-core.mjs?v=5.0.2";
 
 // Flow deliberately shares the Firebase project/Auth identities with Sōlo, while
 // all of its financial data stays in the flowUsers namespace.
@@ -33,6 +33,17 @@ let syncIdle = Promise.resolve();
 let erasingUid = null;
 let conflictOpen = false;
 let activeUid = null;
+let sharingRefreshGeneration = 0;
+let sharingReady = false;
+async function checkSharingRules(uid) {
+  // Reading a private nonexistent proof is allowed only by the upgraded rules.
+  // No data write or insecure legacy invitation fallback is used as a probe.
+  try { await getDoc(doc(db, 'flowUsers', uid, 'joinProofs', 'flow-rules-v502-probe')); return true; }
+  catch { return false; }
+}
+function requireSharingRules() {
+  if (!sharingReady) throw new Error('Le partage attend la publication des nouvelles règles Firebase. Tes comptes personnels restent accessibles et synchronisés.');
+}
 
 const localState = () => window.FlowApp?.getState?.() || null;
 const useful = state => window.FlowApp?.hasUsefulData?.(state)
@@ -43,6 +54,8 @@ function status(message, connected = false) {
   const indicator=$("syncIndicator");
   if(indicator){indicator.textContent=!connected?'Enregistré sur cet appareil': /Synchronisé|Mis à jour depuis/.test(message)?'Synchronisé':/Hors connexion/.test(message)?'Hors connexion · enregistré ici':/indisponible|dépasse|ne peut pas/.test(message)?'À synchroniser · enregistré ici':/copie locale|Version locale/.test(message)?'Version choisie · voir les réglages':/Connexion à/.test(message)?'Connexion en cours…':'Enregistré ici · synchronisation en cours…';indicator.title=message;indicator.dataset.pending=connected&&!/Synchronisé|Mis à jour depuis/.test(message)?'true':'false';}
   const label = $("cloudAccountLabel");
+  const localProblem = window.FlowApp?.getStorageProblem?.();
+  if (indicator && localProblem) { indicator.textContent='Copie locale non enregistrée · export recommandé';indicator.title=localProblem; }
   const button = $("cloudAccountButton");
   if (label) label.textContent = connected ? (user?.displayName || user?.email?.split("@")[0] || "Connecté") : "Connexion";
   button?.classList.toggle("is-connected", connected);
@@ -391,9 +404,11 @@ function renderSharing(message = "") {
       <button type="submit" class="button ghost">Rejoindre</button></form>
   </div><button type="button" class="button ghost" data-share="refresh">Actualiser mes espaces</button><p class="field-help" role="status" data-share-status></p><div data-share-list><p class="field-help">Chargement des espaces…</p></div>`;
   mount.querySelector('[data-share-status]').textContent = message;
+  if(!sharingReady) mount.querySelectorAll('form[data-share-form] button').forEach(button=>{button.disabled=true;});
   refreshSharedSpaces();
 }
 async function createSharedSpace(form) {
+  requireSharingRules();
   const fd = new FormData(form);
   const name = String(fd.get("name") || "").trim();
   const kind = String(fd.get("kind") || "project");
@@ -403,7 +418,7 @@ async function createSharedSpace(form) {
   const who = user.uid;
   const batch = writeBatch(db);
   const workspace = doc(db, "flowWorkspaces", workspaceId);
-  batch.set(workspace, { ownerId: who, name, kind, memberCount: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  batch.set(workspace, { ownerId: who, name, kind, memberCount: 1, memberIds: [who], createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   batch.set(doc(db, "flowWorkspaces", workspaceId, "members", who), { uid: who, role: "admin", displayName: String(user.displayName || 'Membre').slice(0, 48), joinedAt: serverTimestamp() });
   batch.set(doc(db, "flowUsers", who, "workspaces", workspaceId), { workspaceId, role: "admin", name });
   await batch.commit();
@@ -413,6 +428,7 @@ async function createSharedSpace(form) {
   if (user?.uid === who) { const statusNode = shareMount()?.querySelector("[data-share-status]"); if (statusNode) statusNode.textContent = "Espace créé. Tu peux maintenant générer un code pour inviter quelqu’un."; await refreshSharedSpaces(); }
 }
 async function makeInvite(workspaceId, role = "member") {
+  requireSharingRules();
   if (!user || !["member", "viewer"].includes(role)) return;
   const code = randomCode(24);
   const invite = doc(db, "flowInvites", code);
@@ -422,6 +438,7 @@ async function makeInvite(workspaceId, role = "member") {
   if (box) { box.textContent = `Code valable 7 jours : ${code} · copie-le et envoie-le à la personne. Tes comptes et opérations restent privés.`; box.classList.remove("hidden"); }
 }
 async function acceptInvite(form) {
+  requireSharingRules();
   const code = String(new FormData(form).get("code") || "").trim();
   if (!user || !/^[A-Za-z0-9_-]{32,64}$/.test(code)) throw new Error("Ce code d’invitation semble incomplet.");
   const snap = await getDoc(doc(db, "flowInvites", code));
@@ -430,7 +447,10 @@ async function acceptInvite(form) {
   if (!invitation.workspaceId || !["member", "viewer"].includes(invitation.role) || !invitation.expiresAt?.toDate || invitation.expiresAt.toDate().getTime() <= Date.now()) throw new Error("Code invalide ou expiré.");
   const uid = user.uid;
   const batch = writeBatch(db);
-  batch.set(doc(db, "flowWorkspaces", invitation.workspaceId, "members", uid), { uid, role: invitation.role, displayName: String(user.displayName || 'Membre').slice(0, 48), inviteCode: code, joinedAt: serverTimestamp() });
+  // Membership, exact roster delta and count are validated atomically.
+  batch.update(doc(db, 'flowWorkspaces', invitation.workspaceId), { memberCount: increment(1), memberIds: arrayUnion(uid), updatedAt: serverTimestamp() });
+  batch.set(doc(db, "flowUsers", uid, "joinProofs", invitation.workspaceId), { uid, workspaceId: invitation.workspaceId, role: invitation.role, inviteCode: code });
+  batch.set(doc(db, "flowWorkspaces", invitation.workspaceId, "members", uid), { uid, role: invitation.role, displayName: String(user.displayName || 'Membre').slice(0, 48), joinedAt: serverTimestamp() });
   batch.set(doc(db, "flowUsers", uid, "workspaces", invitation.workspaceId), { workspaceId: invitation.workspaceId, role: invitation.role, name: "Espace partagé" });
   await batch.commit();
   if (user?.uid === uid) await refreshSharedSpaces();
@@ -439,32 +459,48 @@ async function refreshSharedSpaces() {
   const list = shareMount()?.querySelector("[data-share-list]");
   if (!list || !user) return;
   const uid = user.uid;
+  const generation = ++sharingRefreshGeneration;
+  const current = () => generation === sharingRefreshGeneration && user?.uid === uid && list.isConnected;
+  const fragment = document.createDocumentFragment();
+  const refresh = shareMount()?.querySelector('[data-share="refresh"]');
+  list.inert = true; list.setAttribute('aria-busy', 'true');
+  if (refresh) refresh.disabled = true;
   try {
     const indexes = await getDocs(collection(db, "flowUsers", uid, "workspaces"));
     const spaces = await Promise.all(indexes.docs.slice(0, 50).map(async item => {
       const data = item.data();
       try {
         const snap = await getDoc(doc(db, "flowWorkspaces", item.id));
-        const member = await getDoc(doc(db, "flowWorkspaces", item.id, "members", uid));
-        return snap.exists() && member.exists() ? { id: item.id, ...snap.data(), role: member.data().role } : null;
+        if (!snap.exists()) return null;
+        try {
+          const member = await getDoc(doc(db, "flowWorkspaces", item.id, "members", uid));
+          return member.exists() ? { id: item.id, ...snap.data(), role: member.data().role } : null;
+        } catch (error) {
+          // Successful workspace read proves actual membership server-side.
+          // Do not read or expose the old invitation to recover its UI metadata.
+          if (error.code !== 'permission-denied') throw error;
+          return { id: item.id, ...snap.data(), role: 'viewer', needsMigration: true };
+        }
       }
-      catch { return null; }
+      catch (error) { if(error.code==='permission-denied'||error.code==='not-found')return null;throw error; }
     }));
-    if (user?.uid !== uid || !list.isConnected) return;
+    if (!current()) return;
     const available = spaces.filter(Boolean);
-    if (!available.length) { list.innerHTML = '<p class="field-help">Aucun espace partagé pour le moment. Crée-en un ou rejoins-en un avec un code.</p>'; return; }
-    list.replaceChildren();
+    if (!available.length) { const empty=document.createElement('p');empty.className='field-help';empty.textContent='Aucun espace partagé pour le moment. Crée-en un ou rejoins-en un avec un code.';fragment.append(empty); }
     for (const space of available) {
       const card = document.createElement("article");
       card.className = "sharing-space";
+      card.dataset.spaceId = space.id;
       const title = document.createElement("h3"); title.textContent = space.name || "Espace Flow";
       const meta = document.createElement("p"); meta.className = "field-help"; meta.textContent = `${space.kind === "budget" ? "Budget partagé" : "Projet partagé"} · rôle : ${space.role || "membre"}`;
       card.append(title, meta);
+      if (space.needsMigration) { const warning=document.createElement('p');warning.className='field-help';warning.textContent='Ancien accès à sécuriser : cet espace reste disponible en lecture. Demande à son administrateur de sécuriser les anciennes invitations pour rétablir l’affichage exact de tes droits.';card.append(warning); }
       if (space.role === "admin") {
         const actions = document.createElement("div"); actions.className = "sharing-actions";
         for (const [label, role] of [["Inviter · peut modifier", "member"], ["Inviter · lecture seule", "viewer"]]) {
           const button = document.createElement("button"); button.type = "button"; button.className = "button ghost"; button.textContent = label;
-          button.addEventListener("click", () => makeInvite(space.id, role).catch(error => { const node = shareMount()?.querySelector("[data-share-status]"); if (node) node.textContent = authError(error); })); actions.append(button);
+          button.disabled = !sharingReady || !Array.isArray(space.memberIds);
+          button.addEventListener("click", () => sharingAction(button, uid, null, () => makeInvite(space.id, role), false)); actions.append(button);
         }
         card.append(actions);
         const output = document.createElement("p"); output.className = "field-help hidden"; output.dataset.inviteOutput = space.id; card.append(output);
@@ -483,31 +519,45 @@ async function refreshSharedSpaces() {
             const input = document.createElement("input"); input.type = "number"; input.min = "0"; input.max = String(data.target || 10000000); input.step = "0.01"; input.value = String(data.saved || 0); input.name = "saved";
             label.append(input);
             const save = document.createElement("button"); save.className = "button ghost"; save.type = "submit"; save.textContent = "Mettre à jour";
+            save.disabled = !sharingReady;
             edit.append(label, save);
             edit.addEventListener("submit", event => {
               event.preventDefault();
               const saved = Number(input.value);
               if (!Number.isFinite(saved) || saved < 0 || saved > Number(data.target || 10000000)) return;
-              setDoc(contentRef, { title: data.title, kind: data.kind, target: data.target, saved, ownerId: data.ownerId, createdAt: data.createdAt, updatedAt: serverTimestamp() }).then(() => { if (shareMount()?.querySelector("[data-share-status]")) shareMount().querySelector("[data-share-status]").textContent = "Progression partagée mise à jour."; }).catch(() => { if (shareMount()?.querySelector("[data-share-status]")) shareMount().querySelector("[data-share-status]").textContent = "Modification non autorisée ou espace hors ligne."; });
+              sharingAction(save, uid, null, () => setDoc(contentRef, { title: data.title, kind: data.kind, target: data.target, saved, ownerId: data.ownerId, createdAt: data.createdAt, updatedAt: serverTimestamp() }));
             });
             card.append(edit);
           }
         }
       } catch { /* permission or deleted summary: metadata remains available */ }
       await appendSharingManagement(card, space, uid);
-      if (user?.uid !== uid || !list.isConnected) return;
-      list.append(card);
+      if (!current()) return;
+      fragment.append(card);
     }
+    if (!current()) return;
+    // Replace once, after all reads, keeping disclosures open.
+    for (const card of fragment.querySelectorAll('.sharing-space')) {
+      const previous = [...list.querySelectorAll('.sharing-space')].find(node => node.dataset.spaceId === card.dataset.spaceId);
+      if (previous?.querySelector('details')?.open) card.querySelector('details').open = true;
+    }
+    list.replaceChildren(fragment);
+    if (!sharingReady) { const warning=document.createElement('p');warning.className='field-help';warning.textContent='Mise à jour du partage en attente des règles Firebase. Les comptes personnels ne sont pas affectés.';list.prepend(warning); }
   } catch (error) {
-    if (list.isConnected) list.textContent = "Impossible de charger les espaces maintenant. Tes données personnelles restent disponibles.";
+    if (current()) { const node=shareMount()?.querySelector('[data-share-status]');if(node)node.textContent='Impossible d’actualiser les espaces. Les données affichées sont conservées.'; }
+  } finally {
+    if (current()) { list.inert=false;list.removeAttribute('aria-busy');if(refresh)refresh.disabled=false; }
   }
 }
-async function sharingAction(button, uid, confirmation, action) {
-  if (user?.uid !== uid || (confirmation && !confirm(confirmation))) return;
+async function sharingAction(button, uid, confirmation, action, refreshAfter = true) {
+  if (button.disabled || user?.uid !== uid || (confirmation && !confirm(confirmation))) return;
   button.disabled = true;
+  const node = shareMount()?.querySelector('[data-share-status]');
+  if (node) node.textContent = 'Enregistrement en cours…';
   try {
+    requireSharingRules();
     await action();
-    if (user?.uid === uid) await refreshSharedSpaces();
+    if (user?.uid === uid) { if(refreshAfter) await refreshSharedSpaces();if(node?.isConnected)node.textContent='Modification enregistrée.'; }
   } catch {
     const node = shareMount()?.querySelector('[data-share-status]');
     if (user?.uid === uid && node) node.textContent = "Action non autorisée ou connexion indisponible. Aucun succès n’a été confirmé.";
@@ -517,8 +567,28 @@ async function appendSharingManagement(card, space, uid) {
   const details = document.createElement('details');
   const summary = document.createElement('summary'); summary.textContent = 'Membres et accès'; details.append(summary);
   try {
-    const members = await getDocs(collection(db, 'flowWorkspaces', space.id, 'members'));
+    const members = space.role === 'admin' ? await getDocs(collection(db, 'flowWorkspaces', space.id, 'members')) : { docs: [{ id:uid, data:()=>({role:space.role}) }] };
     if (user?.uid !== uid) return;
+    if (space.role === 'admin' && (!Array.isArray(space.memberIds) || members.docs.some(member => Object.hasOwn(member.data(), 'inviteCode')))) {
+      const secure=document.createElement('button');secure.type='button';secure.className='button secondary';secure.textContent='Sécuriser les anciennes invitations';secure.disabled=!sharingReady;
+      secure.addEventListener('click',()=>sharingAction(secure,uid,'Révoquer tous les codes actifs de cet espace et retirer les anciens codes des fiches ? Les membres restent inscrits ; il faudra générer de nouvelles invitations.',async()=>{
+        const invitations=await getDocs(query(collection(db,'flowInvites'),where('workspaceId','==',space.id)));
+        const currentMembers=await getDocs(collection(db,'flowWorkspaces',space.id,'members'));
+        // Revoke first; a partially interrupted cleanup cannot keep exposed codes live.
+        for(let start=0;start<invitations.docs.length;start+=400){const batch=writeBatch(db);invitations.docs.slice(start,start+400).forEach(invite=>batch.delete(invite.ref));await batch.commit();}
+        for(let start=0;start<currentMembers.docs.length;start+=400){const batch=writeBatch(db);currentMembers.docs.slice(start,start+400).filter(member=>Object.hasOwn(member.data(),'inviteCode')).forEach(member=>batch.update(member.ref,{inviteCode:deleteField()}));await batch.commit();}
+        // Read each existing member in the transaction: concurrent departures
+        // trigger a retry, so no stale roster re-enables a removed membership.
+        await runTransaction(db, async transaction => {
+          const ref=doc(db,'flowWorkspaces',space.id),root=await transaction.get(ref);
+          if(Array.isArray(root.data()?.memberIds))return;
+          const roster=await Promise.all(currentMembers.docs.map(member=>transaction.get(member.ref)));
+          const ids=roster.filter(member=>member.exists()).map(member=>member.id);
+          if(ids.length>1000)throw new Error('Cet espace dépasse la limite de migration. Contacte l’éditeur.');
+          transaction.update(ref,{memberIds:ids,memberCount:ids.length,updatedAt:serverTimestamp()});
+        });
+      }));details.append(secure);
+    }
     for (const member of members.docs) {
       const data = member.data(); const row = document.createElement('div'); row.className = 'sharing-actions';
       const label = document.createElement('span');
@@ -528,10 +598,11 @@ async function appendSharingManagement(card, space, uid) {
         const role = document.createElement('button'); role.type = 'button'; role.className = 'button ghost';
         const nextRole = data.role === 'viewer' ? 'member' : 'viewer';
         role.textContent = nextRole === 'viewer' ? 'Passer en lecture seule' : 'Autoriser la modification';
+        role.disabled=Object.hasOwn(data,'inviteCode');if(role.disabled)role.title='Sécurise d’abord les anciennes invitations.';
         role.addEventListener('click', () => sharingAction(role, uid, `Changer les droits de ce membre dans « ${space.name} » ?`, () => setDoc(doc(db, 'flowWorkspaces', space.id, 'members', member.id), { role: nextRole }, { merge: true })));
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button danger'; remove.textContent = 'Retirer';
         remove.addEventListener('click', () => sharingAction(remove, uid, `Retirer l’accès de ce membre à « ${space.name} » ? Ses copies déjà consultées ne peuvent pas être effacées. Révoque aussi les codes d’invitation actifs pour empêcher un retour avec ces codes.`, () => {
-          const batch = writeBatch(db); batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', member.id)); batch.delete(doc(db, 'flowUsers', member.id, 'workspaces', space.id)); return batch.commit();
+          const batch = writeBatch(db);if(Array.isArray(space.memberIds))batch.update(doc(db,'flowWorkspaces',space.id),{memberIds:arrayRemove(member.id),memberCount:increment(-1),updatedAt:serverTimestamp()});batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', member.id)); batch.delete(doc(db, 'flowUsers', member.id, 'workspaces', space.id)); return batch.commit();
         }));
         row.append(role, remove);
       }
@@ -540,7 +611,7 @@ async function appendSharingManagement(card, space, uid) {
     if (uid !== space.ownerId) {
       const leave = document.createElement('button'); leave.type = 'button'; leave.className = 'button danger'; leave.textContent = 'Quitter cet espace';
       leave.addEventListener('click', () => sharingAction(leave, uid, `Quitter « ${space.name} » ? Tes données personnelles restent intactes. Un code d’invitation valide sera nécessaire pour revenir.`, () => {
-        const batch = writeBatch(db); batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', uid)); batch.delete(doc(db, 'flowUsers', uid, 'workspaces', space.id)); return batch.commit();
+        const batch = writeBatch(db);if(Array.isArray(space.memberIds))batch.update(doc(db,'flowWorkspaces',space.id),{memberIds:arrayRemove(uid),memberCount:increment(-1),updatedAt:serverTimestamp()});batch.delete(doc(db, 'flowWorkspaces', space.id, 'members', uid));batch.delete(doc(db,'flowUsers',uid,'joinProofs',space.id));batch.delete(doc(db, 'flowUsers', uid, 'workspaces', space.id)); return batch.commit();
       }));
       details.append(leave);
     }
@@ -559,6 +630,7 @@ async function appendSharingManagement(card, space, uid) {
       const help = document.createElement('p'); help.className = 'field-help'; help.textContent = 'La révocation d’un code ne retire pas les membres déjà présents. Retirer un membre n’efface pas ses copies locales.'; details.append(help);
     }
   } catch { const text = document.createElement('p'); text.className = 'field-help'; text.textContent = 'Gestion des accès indisponible. Actualise avec une connexion.'; details.append(text); }
+  if(!sharingReady) details.querySelectorAll('button').forEach(button=>{button.disabled=true;});
   card.append(details);
 }
 shareMount()?.addEventListener("click", event => {
@@ -569,10 +641,12 @@ shareMount()?.addEventListener("submit", event => {
   const form = event.target.closest("form[data-share-form]");
   if (!form) return;
   event.preventDefault();
+  if(form.dataset.busy==='true')return;
+  form.dataset.busy='true';const submit=form.querySelector('[type="submit"]');if(submit)submit.disabled=true;
   const statusNode = shareMount()?.querySelector("[data-share-status]");
   if (statusNode) statusNode.textContent = "En cours…";
   const action = form.dataset.shareForm === "create" ? createSharedSpace(form) : acceptInvite(form);
-  action.then(() => { if (statusNode?.isConnected) statusNode.textContent = "C’est prêt."; }).catch(error => { if (statusNode?.isConnected) statusNode.textContent = error?.message || "Impossible de terminer cette action."; });
+  action.then(() => { if (statusNode?.isConnected) statusNode.textContent = "C’est prêt."; }).catch(error => { if (statusNode?.isConnected) statusNode.textContent = error?.code==='permission-denied'?'Accès refusé : espace plein, déjà rejoint ou ancien espace à mettre à jour par son administrateur. Aucune donnée personnelle n’a été modifiée.':error?.message || "Impossible de terminer cette action."; }).finally(()=>{delete form.dataset.busy;if(submit)submit.disabled=false;});
 });
 
 $("cloudAccountButton")?.addEventListener("click", () => user ? signOut(auth) : openAuth());
@@ -596,8 +670,10 @@ onAuthStateChanged(auth, async nextUser => {
   const previousUid = activeUid;
   const guestCandidate = nextUser && !previousUid ? localState() : null;
   user = nextUser;
-  renderSharing();
+  sharingReady = false;
+  ++sharingRefreshGeneration;
   if (!user) {
+    renderSharing();
     activeUid = null;
     await window.FlowApp?.activateLocal?.();
     status("Tes données locales restent accessibles. Connecte-toi pour les retrouver sur PC et mobile.");
@@ -607,7 +683,12 @@ onAuthStateChanged(auth, async nextUser => {
   if (previousUid && previousUid !== user.uid) await window.FlowApp?.activateLocal?.();
   knownRevision = 0;
   status("Connexion à ton espace…", true);
-  renderSharing();
+  if(shareMount()) shareMount().textContent='Chargement des espaces de ce compte…';
+  const sharingUid=user.uid;
+  checkSharingRules(sharingUid).then(ready=>{
+    if(user?.uid!==sharingUid)return;
+    sharingReady=ready;renderSharing();
+  });
   window.dispatchEvent(new CustomEvent("flow:auth-state", { detail: { uid: user.uid, email: user.email, verified: user.emailVerified } }));
   try { await loadForUser(guestCandidate); }
   catch (error) {

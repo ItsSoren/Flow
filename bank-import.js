@@ -45,7 +45,7 @@
     if (comma >= 0 && dot >= 0) s = comma > dot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
     else if (comma >= 0) s = s.replace(',', '.');
     const n = Number(s);
-    return Number.isFinite(n) && Math.abs(n) <= 1e9 ? Math.round(n * 100) / 100 : null;
+    return Number.isFinite(n) && Math.abs(n) <= 1e9 ? Math.sign(n) * Math.round((Math.abs(n) + Number.EPSILON) * 100) / 100 : null;
   }
   function parseDate(value) {
     const text = String(value || '').trim();
@@ -131,7 +131,7 @@
     $('bankImportConfirm').addEventListener('click', () => {
       if (!converted?.rows.length || selectedAccount !== $('bankImportAccount').value) return;
       const result = window.FlowApp.addImportedTransactions(converted.rows, selectedAccount);
-      status(`${result.added} opérations ajoutées · ${result.duplicates} doublons ignorés · ${result.invalid} lignes invalides. Ton relevé n’a pas été envoyé à un service bancaire.`);
+      status(`${result.added} opérations ajoutées · ${result.duplicates} doublons ignorés · ${result.invalid} lignes invalides.${result.legacyReview?.length ? ` ${result.legacyReview.length} lignes à vérifier : une ancienne empreinte existe, mais ne permet pas de confirmer un doublon. Compare ces lignes à ton historique avant de les saisir manuellement : ${result.legacyReview.map(row=>`${row.date} ${row.label} (${row.amount} €)`).join(' ; ')}.` : ''} Ton relevé n’a pas été envoyé à un service bancaire.`);
       converted = null; $('bankImportConfirm').disabled = true;
     });
     $('bankImportApplyBalance')?.classList.remove('hidden');

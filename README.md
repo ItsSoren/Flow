@@ -1,6 +1,14 @@
-# Flōw — V5
+# Flōw — V5.0.2
 
 Une application de finances personnelles locale, avec synchronisation Firebase facultative. Le dépôt reste nommé **Flow** ; le nom affiché est **Flōw**.
+
+## Mise à jour V5.0.2
+
+Corrections du budget, des confirmations de charges, du rapprochement, des imports, des réservations et de l’affichage mobile. Les clés de stockage V5 et le format personnel sont conservés ; aucune réinitialisation des comptes n’est effectuée. Un résumé figure dans les notifications.
+
+Le partage utilise maintenant des preuves d’invitation privées et un roster transactionnel. Publier les nouvelles règles Firebase est une étape séparée du push GitHub : avant cela, le client conserve la lecture des espaces mais bloque leurs modifications, créations et nouvelles adhésions. Les comptes personnels continuent de se synchroniser sous les règles V5.0.1, ce qui est testé contre émulateur. Après publication, l’administrateur peut utiliser « Sécuriser les anciennes invitations » : les codes sont révoqués, les membres et les résumés conservés. La limite de nouvelles adhésions est de 100 membres actifs ; un ancien espace déjà plus grand conserve ses membres (migration bornée à 1000), mais ne peut pas admettre de nouveau membre tant qu’il n’est pas sous 100.
+
+Le fichier `firestore.rules` contient aussi les règles Sōlo. **Sauvegarder et comparer les règles réellement en ligne avant tout déploiement**, afin de préserver d’éventuelles modifications Sōlo récentes. Ne pas déployer un extrait ni remplacer aveuglément un fichier partagé. Voir les rapports d’audit et `PLAN_JURIDIQUE.md` pour les tests et limites.
 
 ## Au quotidien
 

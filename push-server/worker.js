@@ -91,9 +91,27 @@ async function writeReminders(store, uid, reminders) { await store.put(reminderK
 async function requestBody(request, maximum = 64000) {
   const length = Number(request.headers.get("content-length") || 0);
   if (length > maximum) throw new Error("invalid-body");
-  const body = await request.json();
-  if (JSON.stringify(body).length > maximum) throw new Error("invalid-body");
-  return body;
+  if (!request.body) throw new Error("invalid-body");
+  const reader = request.body.getReader();
+  const chunks = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > maximum) {
+        await reader.cancel().catch(() => {});
+        throw new Error("invalid-body");
+      }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const buffer = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) { buffer.set(chunk, offset); offset += chunk.byteLength; }
+  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer)); }
+  catch { throw new Error("invalid-body"); }
 }
 async function saveSubscription(request, env, uid) {
   const body = await requestBody(request, 12000);

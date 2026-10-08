@@ -23,6 +23,38 @@
     return Number.isFinite(date.getTime()) && `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` === value;
   }
   const makeId = (prefix = 'id') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  // Synchronous SHA-256 for deterministic identifiers in both browser and Node.
+  function identifierDigest(value) {
+    const bytes = new TextEncoder().encode(value), size = Math.ceil((bytes.length + 9) / 64) * 64;
+    const data = new Uint8Array(size); data.set(bytes); data[bytes.length] = 128;
+    const view = new DataView(data.buffer); view.setUint32(size - 4, bytes.length * 8);
+    const initial = [], constants = [];
+    for (let candidate = 2; constants.length < 64; candidate++) {
+      let prime = true;
+      for (let divisor = 2; divisor * divisor <= candidate; divisor++) if (candidate % divisor === 0) { prime = false; break; }
+      if (prime) {
+        if (initial.length < 8) initial.push((Math.sqrt(candidate) % 1 * 4294967296) >>> 0);
+        constants.push((Math.cbrt(candidate) % 1 * 4294967296) >>> 0);
+      }
+    }
+    const rotate = (word, bits) => (word >>> bits) | (word << (32 - bits));
+    const words = new Uint32Array(64), hash = initial.slice();
+    for (let offset = 0; offset < size; offset += 64) {
+      for (let i = 0; i < 16; i++) words[i] = view.getUint32(offset + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const x = words[i - 15], y = words[i - 2];
+        words[i] = words[i - 16] + (rotate(x, 7) ^ rotate(x, 18) ^ (x >>> 3)) + words[i - 7] + (rotate(y, 17) ^ rotate(y, 19) ^ (y >>> 10));
+      }
+      let [a,b,c,d,e,f,g,h] = hash;
+      for (let i = 0; i < 64; i++) {
+        const first = (h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + ((e & f) ^ (~e & g)) + constants[i] + words[i]) >>> 0;
+        const second = ((rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        h=g;g=f;f=e;e=(d+first)>>>0;d=c;c=b;b=a;a=(first+second)>>>0;
+      }
+      [a,b,c,d,e,f,g,h].forEach((word, i) => { hash[i] = (hash[i] + word) >>> 0; });
+    }
+    return hash.map(word => word.toString(16).padStart(8, '0')).join('');
+  }
   function safeId(value, prefix, used) {
     let id = String(value || '');
     if (!/^[A-Za-z0-9._:-]{1,128}$/.test(id) || used.has(id)) id = makeId(prefix);
@@ -30,6 +62,7 @@
     used.add(id); return id;
   }
   const safeArray = value => Array.isArray(value) ? value : [];
+  const safeRecords = value => safeArray(value).filter(item => item && typeof item === 'object' && !Array.isArray(item));
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const positiveAmountCents = value => Math.min(100_000_000_000, Math.abs(Number.isFinite(Number(value)) ? Math.round(Number(value)) : 0));
 
@@ -52,7 +85,7 @@
   function normalizeState(raw) {
     const empty = getEmptyState();
     if (!raw || typeof raw !== 'object') return empty;
-    const sourceAccounts = safeArray(raw.accounts);
+    const sourceAccounts = safeRecords(raw.accounts);
     const usedAccountIds = new Set();
     const accounts = (sourceAccounts.length ? sourceAccounts : empty.accounts).map((account, index) => {
       const legacyBalance = account.currentBalance ?? account.balance ?? account.solde;
@@ -70,14 +103,14 @@
         createdAt: Number(account.createdAt || Date.now()),
         includeInSpendable: account.includeInSpendable == null ? type !== 'savings' : Boolean(account.includeInSpendable),
         reconciledAt: account.reconciledAt ? Number(account.reconciledAt) : null,
-        reconciledBalance: account.reconciledBalance == null ? null : euros(account.reconciledBalance)
+        reconciledBalance: account.reconciledBalance == null ? null : roundEuro(account.reconciledBalance)
       };
     });
     const accountIds = new Set(accounts.map(account => account.id));
     const defaultAccountId = accounts[0].id;
     const normalizeAccount = id => accountIds.has(String(id)) ? String(id) : defaultAccountId;
     const usedTransactionIds = new Set();
-    const transactions = safeArray(raw.transactions || raw.operations).map((transaction, index) => {
+    const transactions = safeRecords(raw.transactions || raw.operations).map((transaction, index) => {
       const legacyType = String(transaction.type || '').toLowerCase();
       const type = legacyType === 'transfer' || legacyType === 'transfert' ? 'transfer'
         : ['income', 'revenu', 'bonus'].includes(legacyType) ? 'income' : 'expense';
@@ -101,12 +134,13 @@
         favorite: Boolean(transaction.favorite),
         reconciled: Boolean(transaction.reconciled),
         importFingerprint: transaction.importFingerprint ? String(transaction.importFingerprint) : null,
-        source: transaction.source ? String(transaction.source) : null
+        source: transaction.source ? String(transaction.source) : null,
+        recurringOccurrence: transaction.recurringOccurrence ? String(transaction.recurringOccurrence) : null
       };
     }).filter(transaction => transaction.amountCents > 0 && (transaction.type !== 'transfer' || transaction.targetAccountId));
 
     const usedRecurringIds = new Set();
-    const recurring = safeArray(raw.recurring || raw.revenus).map((item, index) => {
+    const recurring = safeRecords(raw.recurring || raw.revenus).map((item, index) => {
       const legacyType = String(item.type || '').toLowerCase();
       const type = ['income', 'revenu'].includes(legacyType) ? 'income' : 'expense';
       const amountCents = item.amountCents != null ? positiveAmountCents(item.amountCents) : positiveAmountCents(cents(item.amount ?? item.montant ?? 0));
@@ -124,7 +158,7 @@
     }).filter(item => item.amountCents > 0);
 
     const usedGoalIds = new Set();
-    const goals = safeArray(raw.goals || raw.objectifs).map((goal, index) => {
+    const goals = safeRecords(raw.goals || raw.objectifs).map((goal, index) => {
       const targetCents = goal.targetCents != null ? positiveAmountCents(goal.targetCents) : positiveAmountCents(cents(goal.target ?? goal.amount ?? goal.montant ?? 0));
       const savedCents = goal.savedCents != null ? positiveAmountCents(goal.savedCents) : positiveAmountCents(cents(goal.saved ?? goal.current ?? goal.epargne ?? 0));
       const auto = goal.autoContribution || goal.auto || null;
@@ -143,7 +177,7 @@
     }).filter(goal => goal.targetCents > 0);
 
     const usedReservationIds = new Set();
-    const reservations = safeArray(raw.reservations || raw.reservedContributions).map((reservation, index) => {
+    const reservations = safeRecords(raw.reservations || raw.reservedContributions).map((reservation, index) => {
       const amountCents = positiveAmountCents(reservation.amountCents ?? cents(reservation.amount ?? 0));
       const requestedCents = positiveAmountCents(reservation.requestedCents ?? cents(reservation.requestedAmount ?? reservation.amount ?? 0));
       const status = ['pending', 'confirmed', 'suspended', 'denied', 'released', 'skipped'].includes(reservation.status) ? reservation.status : 'pending';
@@ -164,13 +198,13 @@
     const palette = settings.palette || (String(oldTheme).startsWith('neon-sakura') ? 'neon-sakura' : String(oldTheme).startsWith('ocean-peace') ? 'ocean-peace' : 'flow');
     const notif = settings.notifications || {};
     const usedNotificationIds = new Set();
-    const notifications = safeArray(raw.notifications).map((item, index) => ({
+    const notifications = safeRecords(raw.notifications).map((item, index) => ({
       id: safeId(item.id || `notification-${index + 1}-${makeId()}`, 'notification', usedNotificationIds), kind: String(item.kind || 'general').slice(0,40),
       title: String(item.title || 'Flow').slice(0,100), message: String(item.message || '').slice(0,500), createdAt: Number(item.createdAt || Date.now()),
       read: Boolean(item.read), relatedId: item.relatedId ? String(item.relatedId) : null
     }));
     const usedReminderIds = new Set();
-    const reminders = safeArray(raw.reminders).map((item, index) => ({
+    const reminders = safeRecords(raw.reminders).map((item, index) => ({
       id: safeId(item.id || `reminder-${index + 1}-${makeId()}`, 'reminder', usedReminderIds), title: String(item.title || 'Rappel').slice(0,100),
       date: isoDate(item.date || Date.now()), note: String(item.note || ''), kind: String(item.kind || 'custom'),
       createdAt: Number(item.createdAt || Date.now()), done: Boolean(item.done)
@@ -227,12 +261,16 @@
     const occurrences = [];
     let date = new Date(`${recurring.nextDate}T12:00:00`);
     const end = new Date(`${through}T12:00:00`);
-    let guard = 0;
-    while (date <= end && guard++ < 120) {
+    // Dates advance strictly: do not silently drop older unpaid occurrences.
+    while (date <= end) {
       if (date >= new Date(`${from}T00:00:00`)) occurrences.push(isoDate(date));
       if (recurring.frequency === 'once') break;
       if (recurring.frequency === 'weekly') date.setDate(date.getDate() + 7);
-      else if (recurring.frequency === 'yearly') date.setFullYear(date.getFullYear() + 1);
+      else if (recurring.frequency === 'yearly') {
+        const day = date.getDate(), month = date.getMonth();
+        date.setDate(1); date.setFullYear(date.getFullYear() + 1); date.setMonth(month);
+        date.setDate(Math.min(day, new Date(date.getFullYear(), month + 1, 0).getDate()));
+      }
       else {
         const day = date.getDate(); date.setDate(1); date.setMonth(date.getMonth() + 1);
         date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
@@ -315,7 +353,9 @@
     if (!requested.length) return [];
     const available = getSpendableBreakdown(state, new Date(now)).spendableCents;
     const eligibleRequests=requested.filter(item=>item.eligible),totalRequested=eligibleRequests.reduce((sum,item)=>sum+item.amountCents,0);
-    const enough = available >= totalRequested;
+    const accountRequests = new Map();
+    eligibleRequests.forEach(item => accountRequests.set(item.accountId, (accountRequests.get(item.accountId) || 0) + item.amountCents));
+    const enough = available >= totalRequested && [...accountRequests].every(([accountId, amount]) => amount <= reservationAccountAvailable(state, accountId, now));
     const reservations = requested.map(({ goal, accountId, eligible, amountCents }) => ({
       id: makeId('reservation'), salaryTransactionId: triggerId, goalId: goal.id,
       accountId,
@@ -325,7 +365,7 @@
       confirmAt: now + RESERVATION_DELAY_MS, confirmedAt: null, resolvedAt: null,
       reason: !eligible ? `Réservation suspendue : le compte choisi n’est pas inclus dans le calcul du disponible. Choisis un compte courant, espèces ou autre inclus, ou ignore cette réservation.`
         : enough ? `Réservation automatique après le salaire « ${salaryTransaction.label} » : ${moneyText(euros(amountCents))} prévus pour « ${goal.name} ».`
-        : `Réservation suspendue : ${moneyText(euros(totalRequested))} demandés, mais seulement ${moneyText(euros(Math.max(0, available)))} disponibles après charges prévues et réserve de sécurité.`,
+        : `Réservation suspendue : les contributions dépassent le disponible global ou celui du compte choisi, après les charges et réserves existantes.`,
       note: `Calcul : ${goal.autoContribution.mode === 'percent' ? `${goal.autoContribution.value}% de ${moneyText(euros(salaryTransaction.amountCents ?? cents(salaryTransaction.amount)))}` : 'montant fixe'} pour le projet « ${goal.name} ».`
     }));
     state.reservations.push(...reservations);
@@ -333,6 +373,16 @@
     else if(eligibleRequests.length) createNotification(state, 'reservation', 'Réservation en attente de choix', `Le salaire est enregistré, mais les contributions dépassent le disponible. Choisis réduire, ignorer ou répartir au prorata.`, triggerId, now);
     else createNotification(state, 'reservation', 'Compte à modifier', `Les contributions automatiques de ce salaire sont suspendues, car les projets utilisent un compte exclu du disponible.`, triggerId, now);
     return reservations;
+  }
+
+  function reservationAccountAvailable(state, accountId, now) {
+    const today = isoDate(new Date(now)), nextSalaryDate = getNextSalaryDate(state, today);
+    const reserved = state.reservations.filter(item => ['pending', 'confirmed'].includes(item.status) && item.accountId === accountId).reduce((sum, item) => sum + item.amountCents, 0);
+    const scheduled = state.recurring.filter(item => item.type === 'expense' && item.accountId === accountId)
+      .flatMap(item => monthlyOccurrences(item, item.nextDate, nextSalaryDate).filter(date => date < nextSalaryDate).map(date => ({ item, date })))
+      .filter(({ item, date }) => !state.transactions.some(transaction => transaction.type === 'expense' && (transaction.sourceAccountId || transaction.accountId) === accountId && transaction.date === date && (transaction.amountCents ?? cents(transaction.amount)) === (item.amountCents ?? cents(item.amount)) && transaction.label.trim().toLowerCase() === item.label.trim().toLowerCase()))
+      .reduce((sum, { item }) => sum + (item.amountCents ?? cents(item.amount)), 0);
+    return Math.max(0, getAccountBalanceCents(state, accountId, today) - reserved - scheduled);
   }
 
   function makeManualReservation(state, goalId, amountValue, accountId, now = Date.now()) {
@@ -349,7 +399,7 @@
     if (!amountCents) return { ok: false, reason: 'goal-complete' };
     const today = isoDate(new Date(now));
     const nextSalaryDate = getNextSalaryDate(state, today);
-    const accountReservations = activeReservedCents(state) - state.reservations.filter(item => ['pending', 'confirmed'].includes(item.status) && item.accountId !== accountId).reduce((sum, item) => sum + item.amountCents, 0);
+    const accountReservations = state.reservations.filter(item => ['pending', 'confirmed'].includes(item.status) && item.accountId === accountId).reduce((sum, item) => sum + item.amountCents, 0);
     const accountScheduledExpenses = state.recurring.filter(item => item.type === 'expense' && item.accountId === accountId)
       .flatMap(item => monthlyOccurrences(item, item.nextDate, nextSalaryDate).filter(date => date < nextSalaryDate).map(date => ({ item, date })))
       .filter(({ item, date }) => !state.transactions.some(transaction => transaction.type === 'expense' && (transaction.sourceAccountId || transaction.accountId) === accountId && transaction.date === date && (transaction.amountCents ?? cents(transaction.amount)) === (item.amountCents ?? cents(item.amount)) && transaction.label.trim().toLowerCase() === item.label.trim().toLowerCase()))
@@ -400,18 +450,24 @@
     if (action!=='skip'&&!state.accounts.some(account=>account.id===target.accountId&&account.includeInSpendable)) return { ok:false,reason:'excluded-account' };
     const group = state.reservations.filter(item => item.salaryTransactionId === target.salaryTransactionId && item.status === 'suspended'&&state.accounts.some(account=>account.id===item.accountId&&account.includeInSpendable));
     const available = getSpendableBreakdown(state, new Date(now)).spendableCents;
+    const remainingFor = item => {
+      const goal = state.goals.find(goal => goal.id === item.goalId);
+      if (!goal) return 0;
+      const reserved = state.reservations.filter(other => other.goalId === goal.id && ['pending', 'confirmed'].includes(other.status)).reduce((sum, other) => sum + other.amountCents, 0);
+      return Math.max(0, (goal.targetCents ?? cents(goal.target)) - (goal.savedCents ?? cents(goal.saved)) - reserved);
+    };
     if (action === 'reduce') {
       const desired = amountValue == null ? Math.min(target.requestedCents, Math.max(0, available)) : Math.min(target.requestedCents, Math.max(0, cents(amountValue)));
-      const alloc = Math.min(desired, Math.max(0, available));
+      const alloc = Math.min(desired, Math.max(0, available), remainingFor(target), reservationAccountAvailable(state, target.accountId, now));
       target.amountCents = alloc; target.amount = euros(alloc); target.status = alloc ? 'pending' : 'skipped'; target.confirmAt = now + RESERVATION_DELAY_MS; target.resolvedAt = null;
       target.reason = alloc ? `Montant réduit manuellement à ${moneyText(euros(alloc))}. Confirmation automatique dans 5 minutes si tu ne refuses pas.` : 'Aucun montant disponible : réservation ignorée.';
       createNotification(state, 'reservation', 'Réservation ajustée', target.reason, target.id, now);
       return { ok: true, reservations: [target] };
     }
     if (action === 'prorata') {
-      const allocation = allocateProRata(group, available);
+      const allocation = allocateProRata(group.map(item => ({ requestedCents: Math.min(item.requestedCents, remainingFor(item)) })), available);
       group.forEach((item, index) => {
-        const amount = allocation[index]; item.amountCents = amount; item.amount = euros(amount);
+        const amount = Math.min(allocation[index], remainingFor(item), reservationAccountAvailable(state, item.accountId, now)); item.amountCents = amount; item.amount = euros(amount);
         item.status = amount ? 'pending' : 'skipped'; item.confirmAt = now + RESERVATION_DELAY_MS; item.resolvedAt = null;
         item.reason = amount ? `Répartie au prorata du disponible : ${moneyText(euros(amount))} affectés à ce projet. Confirmation dans 5 minutes si tu ne refuses pas.` : 'Part allouée nulle au prorata : aucun montant réservé.';
       });
@@ -440,6 +496,7 @@
   function reconcileAccountBalance(state, accountId, currentBalance, date = new Date()) {
     const account = state.accounts.find(item => item.id === accountId);
     if (!account) return { ok: false, reason: 'missing-account' };
+    if (!Number.isFinite(Number(currentBalance)) || Math.abs(Number(currentBalance)) > MAX_AMOUNT_EUR) return { ok: false, reason: 'invalid-amount' };
     const desired = cents(currentBalance);
     let ledgerNet = 0;
     const cutoff = isoDate(date);
@@ -458,11 +515,16 @@
     return { ok: true, previous: euros(previousCents), current: euros(desired), openingBalance: account.openingBalance };
   }
 
-  function stableFingerprint(row, accountId) {
+  function legacyFingerprint(row, accountId) {
     const source = [String(row.date || ''), String(row.label || row.description || '').trim().toLowerCase(), String(cents(row.amount)).replace('-', ''), String(row.amount < 0 ? 'expense' : 'income'), String(row.reference || row.id || ''), String(accountId || '')].join('|');
     let hash = 2166136261;
     for (let index = 0; index < source.length; index++) { hash ^= source.charCodeAt(index); hash = Math.imul(hash, 16777619); }
     return `fp-${(hash >>> 0).toString(16)}`;
+  }
+
+  function stableFingerprint(row, accountId) {
+    // Structured encoding avoids delimiter ambiguity as well as 32-bit collisions.
+    return `fp2-${identifierDigest(JSON.stringify([String(row.date || ''), String(row.label || row.description || '').trim().toLowerCase(), cents(row.amount), String(row.reference || row.id || ''), String(accountId || '')]))}`;
   }
 
   function addImportedTransactions(state, rows, accountId) {
@@ -471,7 +533,7 @@
     const fingerprints = new Set(state.importFingerprints);
     const transactionIds = new Set(state.transactions.map(transaction => transaction.id));
     let added = 0, duplicates = 0, invalid = 0;
-    const transactions = [];
+    const transactions = [], legacyReview = [];
     for (const row of safeArray(rows)) {
       const rawAmount = Number(row.amount);
       if (!Number.isFinite(rawAmount) || Math.abs(rawAmount) > MAX_AMOUNT_EUR || cents(rawAmount) === 0 || !isIsoDate(String(row.date || ''))) { invalid++; continue; }
@@ -480,6 +542,12 @@
       if (/^[A-Za-z0-9._:-]{1,128}$/.test(rawId) && transactionIds.has(rawId)) { duplicates++; continue; }
       const id = safeId(row.id || makeId('import'), 'import', new Set(transactionIds));
       if (fingerprints.has(fingerprint) || transactionIds.has(id)) { duplicates++; continue; }
+      // Older backups did not retain bank references. An old hash alone cannot
+      // prove equality: report uncertainty instead of silently losing or doubling data.
+      if (!row.fingerprint && !row.importFingerprint && fingerprints.has(legacyFingerprint(row, accountId))) {
+        legacyReview.push({ date: row.date, label: String(row.label || row.description || ''), amount: rawAmount, reference: String(row.reference || row.id || '') });
+        continue;
+      }
       const amountCents = Math.abs(cents(rawAmount));
       const type = rawAmount < 0 ? 'expense' : 'income';
       const transaction = {
@@ -494,7 +562,7 @@
     }
     state.importFingerprints = [...fingerprints];
     for (const transaction of transactions) if (transaction.salary) makeReservationCandidates(state, transaction);
-    return { added, duplicates, invalid, transactions };
+    return { added, duplicates, invalid, transactions, legacyReview };
   }
 
   function markNotificationRead(state, notificationId, read = true) {
@@ -507,10 +575,22 @@
     const recurring=state.recurring.find(item=>item.id===recurringId);
     if(!recurring || recurring.nextDate!==occurrenceDate) return {ok:false,reason:'stale'};
     if(occurrenceDate>isoDate(todayValue)) return {ok:false,reason:'future'};
-    const id=`rec:${recurring.id}:${occurrenceDate}`;
-    let transaction=state.transactions.find(item=>item.id===id);
+    const occurrenceKey=`rec:${recurring.id}:${occurrenceDate}`;
+    let transaction=state.transactions.find(item=>item.id===occurrenceKey || item.recurringOccurrence===occurrenceKey);
+    // Keep the complete occurrence association separately from the bounded ID.
+    // Existing short IDs remain compatible with previously saved triggers.
+    const id = transaction?.id || (occurrenceKey.length <= 128 ? occurrenceKey : `rec-${identifierDigest(occurrenceKey)}`);
+    // Use the same evidence as the spending forecast, but never consume a
+    // payment already associated with another recurring occurrence.
+    if (!transaction && recurring.type === 'expense') {
+      transaction = state.transactions.find(item => item.type === 'expense' && !item.recurringOccurrence && item.source !== 'recurring' &&
+        (item.sourceAccountId || item.accountId) === recurring.accountId && item.date === occurrenceDate &&
+        (item.amountCents ?? cents(item.amount)) === (recurring.amountCents ?? cents(recurring.amount)) &&
+        item.label.trim().toLowerCase() === recurring.label.trim().toLowerCase());
+    }
     const added=!transaction;
     if(added){transaction={id,type:recurring.type,amount:recurring.amount,amountCents:recurring.amountCents??cents(recurring.amount),label:recurring.label,category:recurring.category,date:occurrenceDate,accountId:recurring.accountId,sourceAccountId:recurring.accountId,salary:recurring.type==='income'&&(recurring.salary||recurring.category==='salaire'),source:'recurring'};state.transactions.push(transaction);}
+    transaction.recurringOccurrence = occurrenceKey;
     if(recurring.frequency==='once')state.recurring=state.recurring.filter(item=>item.id!==recurringId);
     else {
       const date=new Date(`${occurrenceDate}T12:00:00`),day=date.getDate();

@@ -22,9 +22,7 @@ service cloud.firestore {
       return /databases/$(database)/documents/flowWorkspaces/$(workspaceId)/members/$(userId);
     }
     function flowMember(workspaceId) {
-      let workspace = get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data;
-      return flowSignedIn() && exists(flowMemberPath(workspaceId, request.auth.uid))
-        && (!workspace.keys().hasAny(['memberIds']) || request.auth.uid in workspace.memberIds);
+      return flowSignedIn() && exists(flowMemberPath(workspaceId, request.auth.uid));
     }
     function flowAdmin(workspaceId) {
       return flowMember(workspaceId) && get(flowMemberPath(workspaceId, request.auth.uid)).data.role == 'admin';
@@ -40,37 +38,28 @@ service cloud.firestore {
         && request.resource.data.role == 'admin';
     }
     function flowAcceptedInvite(workspaceId, userId) {
-      let proof = getAfter(/databases/$(database)/documents/flowUsers/$(userId)/joinProofs/$(workspaceId)).data;
       return request.resource.data.uid == userId
         && flowRole(request.resource.data.role)
-        && proof.uid == userId && proof.workspaceId == workspaceId
-        && proof.role == request.resource.data.role
-        && flowValidJoinProof(proof, workspaceId, userId)
-        && flowRosterAddition(workspaceId, userId);
-    }
-    function flowValidJoinProof(data, workspaceId, userId) {
-      return data.keys().hasOnly(['uid', 'workspaceId', 'role', 'inviteCode'])
-        && data.uid == userId && data.workspaceId == workspaceId
-        && data.inviteCode is string && flowValidInviteCode(data.inviteCode)
-        && exists(/databases/$(database)/documents/flowInvites/$(data.inviteCode))
-        && get(/databases/$(database)/documents/flowInvites/$(data.inviteCode)).data.workspaceId == workspaceId
-        && get(/databases/$(database)/documents/flowInvites/$(data.inviteCode)).data.role == data.role
-        && get(/databases/$(database)/documents/flowInvites/$(data.inviteCode)).data.expiresAt > request.time;
+        && request.resource.data.inviteCode is string
+        && exists(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode))
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.workspaceId == workspaceId
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.role == request.resource.data.role
+        && get(/databases/$(database)/documents/flowInvites/$(request.resource.data.inviteCode)).data.expiresAt > request.time;
     }
     function flowValidPersonalDocument(data) {
       return data.keys().hasOnly(['personalState', 'revision', 'schemaVersion', 'updatedAt'])
         && data.personalState is map
         && data.personalState.keys().hasAll(['version', 'accounts', 'transactions', 'recurring', 'goals'])
         && data.personalState.keys().hasOnly(['version', 'activeAccountId', 'accounts', 'transactions', 'recurring', 'goals', 'reservations', 'salaryTriggers', 'notifications', 'reminders', 'importFingerprints', 'settings', 'migratedFrom'])
-        && data.personalState.accounts is list && data.personalState.accounts.size() <= 100 && !data.personalState.accounts.hasAny([null])
-        && data.personalState.transactions is list && data.personalState.transactions.size() <= 5000 && !data.personalState.transactions.hasAny([null])
-        && data.personalState.recurring is list && data.personalState.recurring.size() <= 200 && !data.personalState.recurring.hasAny([null])
-        && data.personalState.goals is list && data.personalState.goals.size() <= 200 && !data.personalState.goals.hasAny([null])
-        && data.personalState.reservations is list && data.personalState.reservations.size() <= 2000 && !data.personalState.reservations.hasAny([null])
-        && data.personalState.salaryTriggers is list && data.personalState.salaryTriggers.size() <= 5000 && !data.personalState.salaryTriggers.hasAny([null])
-        && data.personalState.notifications is list && data.personalState.notifications.size() <= 1000 && !data.personalState.notifications.hasAny([null])
-        && data.personalState.reminders is list && data.personalState.reminders.size() <= 500 && !data.personalState.reminders.hasAny([null])
-        && data.personalState.importFingerprints is list && data.personalState.importFingerprints.size() <= 10000 && !data.personalState.importFingerprints.hasAny([null])
+        && data.personalState.accounts is list && data.personalState.accounts.size() <= 100
+        && data.personalState.transactions is list && data.personalState.transactions.size() <= 5000
+        && data.personalState.recurring is list && data.personalState.recurring.size() <= 200
+        && data.personalState.goals is list && data.personalState.goals.size() <= 200
+        && data.personalState.reservations is list && data.personalState.reservations.size() <= 2000
+        && data.personalState.salaryTriggers is list && data.personalState.salaryTriggers.size() <= 5000
+        && data.personalState.notifications is list && data.personalState.notifications.size() <= 1000
+        && data.personalState.reminders is list && data.personalState.reminders.size() <= 500
+        && data.personalState.importFingerprints is list && data.personalState.importFingerprints.size() <= 10000
         && data.personalState.settings is map
         && data.revision is int && data.revision >= 1
         && data.schemaVersion == 1
@@ -80,48 +69,12 @@ service cloud.firestore {
       return code.matches('^[A-Za-z0-9_-]{32,128}$');
     }
     function flowValidWorkspace(data) {
-      return data.keys().hasOnly(['ownerId', 'name', 'kind', 'memberCount', 'memberIds', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['ownerId', 'name', 'kind', 'memberCount', 'createdAt', 'updatedAt'])
         && data.ownerId is string && data.ownerId.size() <= 128
         && data.name is string && data.name.size() > 0 && data.name.size() <= 48
         && data.kind in ['project', 'budget']
-        && data.memberIds is list && data.memberIds.size() >= 1 && data.memberIds.size() <= 1000
-        && data.memberIds.toSet().size() == data.memberIds.size() && data.ownerId in data.memberIds
-        && data.memberCount is int && data.memberCount == data.memberIds.size()
+        && data.memberCount is int && data.memberCount >= 1 && data.memberCount <= 100
         && data.createdAt is timestamp && data.updatedAt == request.time;
-    }
-    // Bind each roster delta to the corresponding membership in the SAME write.
-    // Counts alone can be decremented repeatedly and cannot enforce an active cap.
-    function flowRosterAddition(workspaceId, userId) {
-      let before = get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data;
-      let after = getAfter(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data;
-      return before.keys().hasAny(['memberIds']) && after.memberIds.size() <= 100
-        && after.memberIds.removeAll(before.memberIds) == [userId]
-        && before.memberIds.removeAll(after.memberIds).size() == 0
-        && !exists(flowMemberPath(workspaceId, userId));
-    }
-    function flowRosterRemoval(workspaceId) {
-      let removed = resource.data.memberIds.removeAll(request.resource.data.memberIds);
-      return removed.size() == 1
-        && request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 0
-        && removed[0] != resource.data.ownerId
-        && (flowAdmin(workspaceId) || request.auth.uid == removed[0])
-        && exists(flowMemberPath(workspaceId, removed[0]))
-        && !existsAfter(flowMemberPath(workspaceId, removed[0]));
-    }
-    function flowMemberRemoval(workspaceId, userId) {
-      let before = get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data;
-      let after = getAfter(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data;
-      return !before.keys().hasAny(['memberIds'])
-        || (before.memberIds.removeAll(after.memberIds) == [userId]
-          && after.memberIds.removeAll(before.memberIds).size() == 0
-          && after.memberCount == before.memberCount - 1);
-    }
-    function flowJoiningMember(workspaceId, userId) {
-      let member = getAfter(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)/members/$(userId)).data;
-      let proof = getAfter(/databases/$(database)/documents/flowUsers/$(userId)/joinProofs/$(workspaceId)).data;
-      return userId == request.auth.uid
-        && member.uid == userId && member.role in ['member', 'viewer']
-        && proof.role == member.role && flowValidJoinProof(proof, workspaceId, userId);
     }
     function flowValidSharedSummary(data) {
       return data.keys().hasOnly(['title', 'kind', 'target', 'saved', 'ownerId', 'createdAt', 'updatedAt'])
@@ -257,11 +210,6 @@ service cloud.firestore {
           ? request.resource.data.revision == resource.data.revision + 1
           : request.resource.data.revision == 1);
       allow delete: if flowSignedIn() && request.auth.uid == userId;
-      match /joinProofs/{workspaceId} {
-        allow read, delete: if flowSignedIn() && request.auth.uid == userId;
-        allow create, update: if flowSignedIn() && request.auth.uid == userId
-          && flowValidJoinProof(request.resource.data, workspaceId, userId);
-      }
       match /workspaces/{workspaceId} {
         allow read: if flowSignedIn() && request.auth.uid == userId;
         allow create, update: if flowSignedIn() && request.auth.uid == userId
@@ -279,40 +227,32 @@ service cloud.firestore {
       allow create: if flowSignedIn()
         && flowValidWorkspace(request.resource.data)
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.memberCount == 1
-        && request.resource.data.memberIds == [request.auth.uid];
+        && request.resource.data.memberCount == 1;
       allow get: if flowMember(workspaceId);
       allow list: if false;
-      allow update: if flowSignedIn() && flowValidWorkspace(request.resource.data)
+      allow update: if flowAdmin(workspaceId)
+        && flowValidWorkspace(request.resource.data)
         && request.resource.data.ownerId == resource.data.ownerId
-        && ((flowAdmin(workspaceId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']))
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberCount', 'updatedAt'])
-            && ((flowAdmin(workspaceId) && !resource.data.keys().hasAny(['memberIds']))
-              || (flowRosterAddition(workspaceId, request.auth.uid) && flowJoiningMember(workspaceId, request.auth.uid))
-              || flowRosterRemoval(workspaceId))));
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'memberCount', 'updatedAt']);
       allow delete: if false;
 
       match /members/{userId} {
-        allow get: if flowMember(workspaceId) && (!resource.data.keys().hasAny(['inviteCode']) || flowAdmin(workspaceId));
-        allow list: if flowAdmin(workspaceId);
+        allow read: if flowMember(workspaceId);
         allow create: if flowSignedIn() && request.auth.uid == userId
-          && request.resource.data.keys().hasOnly(['uid', 'role', 'displayName', 'joinedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'role', 'displayName', 'inviteCode', 'joinedAt'])
           && (!request.resource.data.keys().hasAny(['displayName']) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 48))
           && request.resource.data.uid == userId
           && request.resource.data.role in ['admin', 'member', 'viewer']
           && request.resource.data.joinedAt is timestamp
           && (flowOwnerBootstrap(workspaceId, userId) || flowAcceptedInvite(workspaceId, userId));
         allow update: if flowAdmin(workspaceId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'inviteCode'])
-          && !request.resource.data.keys().hasAny(['inviteCode'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
           && (userId == get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId
             ? request.resource.data.role == 'admin'
             : request.resource.data.role in ['member', 'viewer']);
         allow delete: if flowSignedIn()
           && userId != get(/databases/$(database)/documents/flowWorkspaces/$(workspaceId)).data.ownerId
-          && (flowAdmin(workspaceId) || request.auth.uid == userId)
-          && flowMemberRemoval(workspaceId, userId);
+          && (flowAdmin(workspaceId) || request.auth.uid == userId);
       }
       match /transactions/{transactionId} {
         allow read: if flowMember(workspaceId);

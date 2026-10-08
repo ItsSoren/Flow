@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5.0.1">
+  <link rel="stylesheet" href="styles.css?v=5.0.2">
 </head>
 <body>
   <header class="topbar">
@@ -208,17 +208,19 @@
 
   <div class="modal-backdrop hidden" id="cloudAuthModal" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
     <form class="modal small cloud-auth-modal" id="cloudAuthForm"><div class="modal-head"><div><span class="eyebrow">Synchronisation Flōw</span><h2 id="cloudAuthTitle">Retrouve ton espace</h2></div><button type="button" class="close" data-close aria-label="Fermer">×</button></div>
+      <p class="privacy-hint">La connexion est facultative. Firebase traite ton e-mail et synchronise tes données Flōw ; les administrateurs disposent d’un accès technique. Éditeur : Soren Querrec. <a href="privacy.html" target="_blank" rel="noopener noreferrer">Confidentialité, contact et droits</a>. Tu peux continuer sans compte ci-dessous.</p>
       <p class="modal-intro" id="cloudAuthIntro">Connecte-toi pour retrouver tes comptes, opérations et projets sur tes appareils.</p><label id="cloudNameField" class="hidden">Nom affiché<input id="cloudName" maxlength="40" autocomplete="name" placeholder="Ton prénom ou pseudo"></label><label>E-mail<input id="cloudEmail" type="email" required autocomplete="email" placeholder="toi@exemple.fr"></label><label>Mot de passe<input id="cloudPassword" type="password" required minlength="6" autocomplete="current-password" placeholder="6 caractères minimum"></label><button class="text-button auth-reset" id="cloudResetPassword" type="button">Réinitialiser mon mot de passe</button><p class="cloud-auth-error" id="cloudAuthError" role="alert"></p><div class="modal-actions"><button class="button ghost" type="button" id="cloudAuthSwitch">Créer un compte</button><button class="button primary" type="submit" id="cloudAuthSubmit">Se connecter</button></div><button class="cloud-offline-link" type="button" id="cloudOffline">Continuer sans compte</button>
     </form>
   </div>
 
   <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle"><div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="flow-core.js?v=5.0.1"></script>
-  <script src="flow-backup.js?v=5.0.1"></script>
-  <script src="app.js?v=5.0.1"></script>
-  <script type="module" src="bank-import.js?v=5.0.1"></script>
-  <script type="module" src="flow-cloud.js?v=5.0.1"></script>
-  <script type="module" src="flow-pwa.js?v=5.0.1"></script>
+  <script src="flow-core.js?v=5.0.2"></script>
+  <script src="flow-backup.js?v=5.0.2"></script>
+  <script src="dialog-focus.js?v=5.0.2"></script>
+  <script src="app.js?v=5.0.2"></script>
+  <script type="module" src="bank-import.js?v=5.0.2"></script>
+  <script type="module" src="flow-cloud.js?v=5.0.2"></script>
+  <script type="module" src="flow-pwa.js?v=5.0.2"></script>
 </body>
 </html>

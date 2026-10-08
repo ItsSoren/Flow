@@ -4,7 +4,7 @@ const { before, after, beforeEach, test } = require('node:test');
 const {
   initializeTestEnvironment, assertSucceeds, assertFails
 } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, limit, serverTimestamp, writeBatch, Timestamp } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, limit, serverTimestamp, writeBatch, Timestamp, increment, arrayUnion, arrayRemove } = require('firebase/firestore');
 const FlowCore = require('../flow-core.js');
 
 const projectId = 'demo-flow-v5';
@@ -42,9 +42,9 @@ test('Flow sync rejects revision jumps and oversized or unexpected state shapes'
   await assertFails(updateDoc(ref, { revision: 3, updatedAt: serverTimestamp() }));
   const oversized = FlowCore.getEmptyState();
   oversized.transactions = Array.from({ length: 5001 }, (_, id) => ({ id }));
-  await assertFails(setDoc(doc(alice, 'flowUsers/oversized'), personalDocument(oversized)));
+  await assertFails(setDoc(ref, personalDocument(oversized, 2)));
   const unexpected = { ...FlowCore.getEmptyState(), injected: '<script>alert(1)</script>' };
-  await assertFails(setDoc(doc(alice, 'flowUsers/unexpected'), personalDocument(unexpected)));
+  await assertFails(setDoc(ref, personalDocument(unexpected, 2)));
 });
 
 test('Flow collections do not grant access to another user or Sōlo records', { skip: !emulatorAvailable }, async () => {
@@ -82,14 +82,16 @@ test('Flow owner can create a scoped shared space and invite a read-only member'
   const workspaceId = 'flow-workspace-random-123456';
   const inviteCode = 'abcdefghijklmnopqrstuvwxyzABCDEF';
   const batch = writeBatch(owner);
-  batch.set(doc(owner, `flowWorkspaces/${workspaceId}`), { ownerId: 'owner', name: 'Trip', kind: 'project', memberCount: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  batch.set(doc(owner, `flowWorkspaces/${workspaceId}`), { ownerId: 'owner', name: 'Trip', kind: 'project', memberCount: 1, memberIds:['owner'], createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   batch.set(doc(owner, `flowWorkspaces/${workspaceId}/members/owner`), { uid: 'owner', role: 'admin', joinedAt: serverTimestamp() });
   batch.set(doc(owner, `flowUsers/owner/workspaces/${workspaceId}`), { workspaceId, role: 'admin', name: 'Trip' });
   await assertSucceeds(batch.commit());
   await assertSucceeds(setDoc(doc(owner, `flowWorkspaces/${workspaceId}/goals/summary`), { title: 'Trip', kind: 'project', target: 500, saved: 0, ownerId: 'owner', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
   await assertSucceeds(setDoc(doc(owner, `flowInvites/${inviteCode}`), { workspaceId, role: 'viewer', createdBy: 'owner', expiresAt: Timestamp.fromDate(new Date(Date.now() + 3600000)) }));
   const join = writeBatch(guest);
-  join.set(doc(guest, `flowWorkspaces/${workspaceId}/members/guest`), { uid: 'guest', role: 'viewer', inviteCode, joinedAt: serverTimestamp() });
+  join.update(doc(guest, `flowWorkspaces/${workspaceId}`), { memberCount: increment(1), memberIds:arrayUnion('guest'), updatedAt: serverTimestamp() });
+  join.set(doc(guest, `flowUsers/guest/joinProofs/${workspaceId}`), { uid: 'guest', workspaceId, role: 'viewer', inviteCode });
+  join.set(doc(guest, `flowWorkspaces/${workspaceId}/members/guest`), { uid: 'guest', role: 'viewer', joinedAt: serverTimestamp() });
   join.set(doc(guest, `flowUsers/guest/workspaces/${workspaceId}`), { workspaceId, role: 'viewer', name: 'Trip' });
   await assertSucceeds(join.commit());
   await assertSucceeds(getDoc(doc(guest, `flowWorkspaces/${workspaceId}/goals/summary`)));
@@ -105,7 +107,7 @@ test('Flow sharing roles, scoped invite listing, removal and code revocation enf
   const workspaceId = 'managed-space'; const code = 'abcdefghijklmnopqrstuvwxyzABCDEF';
   const base = `flowWorkspaces/${workspaceId}`;
   const batch = writeBatch(owner);
-  batch.set(doc(owner, base), { ownerId: 'owner', name: 'Shared', kind: 'project', memberCount: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  batch.set(doc(owner, base), { ownerId: 'owner', name: 'Shared', kind: 'project', memberCount: 1, memberIds:['owner'], createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   batch.set(doc(owner, `${base}/members/owner`), { uid: 'owner', role: 'admin', joinedAt: serverTimestamp() });
   batch.set(doc(owner, `flowUsers/owner/workspaces/${workspaceId}`), { workspaceId, role: 'admin', name: 'Shared' });
   await assertSucceeds(batch.commit());
@@ -117,7 +119,9 @@ test('Flow sharing roles, scoped invite listing, removal and code revocation enf
   await assertFails(getDocs(query(collection(guest, 'flowInvites'), where('workspaceId', '==', workspaceId), limit(25))));
   await assertFails(setDoc(doc(outsider, `flowUsers/outsider/workspaces/${workspaceId}`), { workspaceId, role: 'admin', name: 'Forged' }));
   const join = writeBatch(guest);
-  join.set(doc(guest, `${base}/members/guest`), { uid: 'guest', role: 'viewer', inviteCode: code, joinedAt: serverTimestamp() });
+  join.update(doc(guest, base), { memberCount: increment(1), memberIds:arrayUnion('guest'), updatedAt: serverTimestamp() });
+  join.set(doc(guest, `flowUsers/guest/joinProofs/${workspaceId}`), { uid: 'guest', workspaceId, role: 'viewer', inviteCode: code });
+  join.set(doc(guest, `${base}/members/guest`), { uid: 'guest', role: 'viewer', joinedAt: serverTimestamp() });
   join.set(doc(guest, `flowUsers/guest/workspaces/${workspaceId}`), { workspaceId, role: 'viewer', name: 'Shared' });
   await assertSucceeds(join.commit());
   await assertFails(updateDoc(doc(guest, `${base}/members/guest`), { role: 'admin' }));
@@ -127,6 +131,7 @@ test('Flow sharing roles, scoped invite listing, removal and code revocation enf
   await assertFails(deleteDoc(doc(outsider, `flowUsers/guest/workspaces/${workspaceId}`)));
   await assertSucceeds(deleteDoc(doc(owner, 'flowInvites', code)));
   const remove = writeBatch(owner);
+  remove.update(doc(owner,base),{memberCount:increment(-1),memberIds:arrayRemove('guest'),updatedAt:serverTimestamp()});
   remove.delete(doc(owner, `${base}/members/guest`)); remove.delete(doc(owner, `flowUsers/guest/workspaces/${workspaceId}`));
   await assertSucceeds(remove.commit());
   await assertFails(getDoc(doc(guest, base)));

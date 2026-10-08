@@ -25,6 +25,38 @@ const makeRequest = (path, { uid, method = 'POST', body, originValue = origin } 
   method, headers: { origin: originValue, ...(uid ? { authorization: `Bearer ${token(uid)}` } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined
 });
 
+test('all push routes bound received bytes before JSON parsing', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => Response.json({ keys: [jwk] });
+  try {
+    const { default: worker } = await import('../push-server/worker.js');
+    const routes = [['/subscribe', 'POST', 12000], ['/subscribe', 'DELETE', 4096], ['/reminders', 'PUT', 64000]];
+    for (const [path, method, limit] of routes) {
+      const request = (body, extra = {}) => new Request(`https://worker.example${path}`, {
+        method, headers: { origin, authorization: `Bearer ${token('body-test')}`, ...extra }, body,
+        ...(body instanceof ReadableStream ? { duplex: 'half' } : {})
+      });
+      for (const extra of [{}, { 'content-length': '2' }]) {
+        const response = await worker.fetch(request(' '.repeat(limit) + '{}', extra), env);
+        assert.equal(response.status, 400);
+        assert.equal((await response.json()).error, 'invalid_body');
+      }
+      assert.equal((await worker.fetch(request(JSON.stringify({ padding: 'é'.repeat(Math.ceil(limit / 2)) })), env)).status, 400);
+      assert.equal((await worker.fetch(request('{broken'), env)).status, 400);
+      assert.equal((await worker.fetch(request(new Uint8Array([0xff])), env)).status, 400);
+      let pulled = 0, cancelled = false;
+      const stream = new ReadableStream({
+        pull(controller) { pulled++; controller.enqueue(new Uint8Array(1024).fill(32)); if (pulled === 100) controller.close(); },
+        cancel() { cancelled = true; }
+      }, { highWaterMark: 0 });
+      assert.equal((await worker.fetch(request(stream), env)).status, 400);
+      assert.equal(cancelled, true);
+      assert.ok(pulled < 100, 'oversized stream must not be consumed in full');
+    }
+    assert.equal((await worker.fetch(makeRequest('/reminders', { uid: 'body-test', method: 'PUT', body: { items: [{ id: 'échéance', kind: 'payday', at: new Date(Date.now() + 60000).toISOString() }] } }), env)).status, 200);
+  } finally { global.fetch = originalFetch; }
+});
+
 test('push worker validates Firebase identity and the exact allowed origin', async () => {
   const originalFetch = global.fetch;
   global.fetch = async url => String(url).includes('securetoken@system.gserviceaccount.com') ? Response.json({ keys: [jwk] }) : new Response(null, { status: 204 });
