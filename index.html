@@ -13,7 +13,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5.0.3">
+  <link rel="stylesheet" href="styles.css?v=5.0.4">
+  <link rel="stylesheet" href="motion.css?v=5.0.4">
 </head>
 <body>
   <header class="topbar">
@@ -124,7 +125,7 @@
 
         <section class="card settings-card" id="settings-notifications"><div class="settings-icon"><svg><use href="assets/icons.svg#i-bell"/></svg></div><div><span class="card-kicker">Rappels utiles</span><h2>Notifications</h2><p>Choisis les rappels que tu veux voir. Les notifications système dépendent des autorisations de ton appareil.</p><div id="pushSettingsMount" class="push-settings"></div><div class="notification-controls"><button class="button ghost" id="notificationReadAll" type="button">Tout marquer comme lu</button><button class="button ghost" id="addReminderButton" type="button">Ajouter un rappel</button></div><div class="notification-filters" id="notificationFilters"><button class="active" data-notification-filter="all">Toutes</button><button data-notification-filter="finance">Finances</button><button data-notification-filter="reminder">Mes rappels</button></div><div id="notificationList" class="notification-list"></div></div></section>
 
-        <section class="card settings-card" id="settings-general"><div class="settings-icon"><svg><use href="assets/icons.svg#i-sliders"/></svg></div><div><span class="card-kicker">Confort d’utilisation</span><h2>Apparence et affichage</h2><p>Des couleurs claires et un espace adapté à ton écran.</p><span class="option-label">Thème</span><div class="theme-options" id="themeModeOptions"><button data-mode="auto"><i class="theme-dot auto"></i>Auto</button><button data-mode="light"><i class="theme-dot light"></i>Clair</button><button data-mode="dark"><i class="theme-dot dark"></i>Sombre</button></div><span class="option-label">Ambiance</span><div class="theme-options" id="paletteOptions"><button data-palette="flow"><i class="theme-dot flow"></i>Flow</button><button data-palette="neon-sakura"><i class="theme-dot sakura"></i>Neon Sakura</button><button data-palette="ocean-peace"><i class="theme-dot ocean"></i>Ocean Peace</button></div><div class="settings-form-grid"><label>Densité sur ordinateur<select id="densitySelect"><option value="comfortable">Confortable</option><option value="compact">Compacte</option><option value="wide">Large</option></select></label><label>Animations<select id="motionSelect"><option value="system">Selon l’appareil</option><option value="reduced">Réduites</option></select></label></div></div></section>
+        <section class="card settings-card" id="settings-general"><div class="settings-icon"><svg><use href="assets/icons.svg#i-sliders"/></svg></div><div><span class="card-kicker">Confort d’utilisation</span><h2>Apparence et affichage</h2><p>Des couleurs claires et un espace adapté à ton écran.</p><span class="option-label">Thème</span><div class="theme-options" id="themeModeOptions"><button data-mode="auto"><i class="theme-dot auto"></i>Auto</button><button data-mode="light"><i class="theme-dot light"></i>Clair</button><button data-mode="dark"><i class="theme-dot dark"></i>Sombre</button></div><span class="option-label">Ambiance</span><div class="theme-options" id="paletteOptions"><button data-palette="flow"><i class="theme-dot flow"></i>Flow</button><button data-palette="neon-sakura"><i class="theme-dot sakura"></i>Neon Sakura</button><button data-palette="ocean-peace"><i class="theme-dot ocean"></i>Ocean Peace</button></div><div class="settings-form-grid"><label>Densité sur ordinateur<select id="densitySelect"><option value="comfortable">Confortable</option><option value="compact">Compacte</option><option value="wide">Large</option></select></label><label>Animations<select id="motionSelect"><option value="system">Selon l’appareil</option><option value="reduced">Réduites</option><option value="amplified">Amplifiées</option></select></label></div></div></section>
 
         <section class="card settings-card import-card" id="settings-import"><div class="settings-icon"><svg><use href="assets/icons.svg#i-file"/></svg></div><div><span class="card-kicker">Importer un relevé</span><h2>Ajouter des opérations depuis un fichier</h2><p>Flōw peut lire un CSV de banque et te laisser vérifier les lignes avant l’import. Le fichier est traité dans ton navigateur.</p><div class="bank-import-form"><label class="button secondary file-button"><svg><use href="assets/icons.svg#i-upload"/></svg>Choisir un relevé CSV<input id="bankImportFile" type="file" accept=".csv,text/csv"></label><label>Importer dans<select id="bankImportAccount"></select></label><div id="bankImportMapping" class="bank-import-mapping"></div><label class="bank-balance-field">Solde réel indiqué par la banque<input id="bankImportBalance" type="number" step="0.01" inputmode="decimal" placeholder="Ex. 1240,50"></label><button class="button secondary hidden" id="bankImportApplyBalance" type="button">Mettre à jour le solde de départ</button><div id="bankImportPreview" class="bank-import-preview"></div><p id="bankImportStatus" role="status" aria-live="polite"></p><button class="button primary hidden" id="bankImportConfirm" type="button" disabled>Importer les opérations choisies</button></div></div></section>
 
@@ -215,12 +216,12 @@
 
   <div class="modal-backdrop hidden tutorial-backdrop" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle"><div class="tutorial-card"><button class="skip-tutorial" id="skipTutorial">Passer</button><div class="tutorial-art" id="tutorialArt"></div><div class="tutorial-copy"><span class="eyebrow" id="tutorialStepLabel">1 sur 3</span><h2 id="tutorialTitle"></h2><p id="tutorialText"></p></div><div class="tutorial-footer"><div class="tutorial-dots" id="tutorialDots"></div><button class="button primary" id="tutorialNext">Continuer</button></div></div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="flow-core.js?v=5.0.3"></script>
-  <script src="flow-backup.js?v=5.0.3"></script>
-  <script src="dialog-focus.js?v=5.0.3"></script>
-  <script src="app.js?v=5.0.3"></script>
-  <script type="module" src="bank-import.js?v=5.0.3"></script>
-  <script type="module" src="flow-cloud.js?v=5.0.3"></script>
-  <script type="module" src="flow-pwa.js?v=5.0.3"></script>
+  <script src="flow-core.js?v=5.0.4"></script>
+  <script src="flow-backup.js?v=5.0.4"></script>
+  <script src="dialog-focus.js?v=5.0.4"></script>
+  <script src="app.js?v=5.0.4"></script>
+  <script type="module" src="bank-import.js?v=5.0.4"></script>
+  <script type="module" src="flow-cloud.js?v=5.0.4"></script>
+  <script type="module" src="flow-pwa.js?v=5.0.4"></script>
 </body>
 </html>

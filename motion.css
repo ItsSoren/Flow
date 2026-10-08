@@ -1,0 +1,145 @@
+/* Motion has three deliberate levels: system, nearly still, and springy. */
+:root {
+  --motion: .22s cubic-bezier(.2,.75,.25,1);
+  --motion-fast: .14s cubic-bezier(.2,.75,.25,1);
+  --motion-slow: .36s cubic-bezier(.2,.75,.25,1);
+  --motion-spring: cubic-bezier(.2,.75,.25,1);
+}
+
+html[data-motion="reduced"] {
+  --motion: 1ms linear;
+  --motion-fast: 1ms linear;
+  --motion-slow: 1ms linear;
+}
+
+html[data-motion="amplified"] {
+  --motion: .38s cubic-bezier(.34,1.42,.55,1);
+  --motion-fast: .24s cubic-bezier(.34,1.42,.55,1);
+  --motion-slow: .52s cubic-bezier(.34,1.42,.55,1);
+  --motion-spring: cubic-bezier(.34,1.42,.55,1);
+}
+
+/* A compact route transition: soft morph, no layout shift or perpetual motion. */
+.page.active {
+  transform-origin: 50% 8%;
+  animation-duration: var(--motion-slow);
+  animation-timing-function: var(--motion-spring);
+}
+
+.nav-item,
+.settings-nav a,
+.mobile-nav .mobile-add,
+.button,
+.icon-button,
+.close,
+.help-topics summary,
+.account-picker {
+  transition-timing-function: var(--motion-spring);
+}
+
+.nav-item.active {
+  animation: nav-arrive var(--motion-fast) var(--motion-spring) both;
+}
+
+.mobile-nav .nav-item.active {
+  animation-name: nav-arrive-mobile;
+}
+
+@media (hover: hover) {
+  .settings-nav a:hover,
+  .help-topics summary:hover {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes nav-arrive {
+  from { opacity: .72; transform: translateY(4px) scale(.96); }
+  78% { transform: translateY(-1px) scale(1.015); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes nav-arrive-mobile {
+  from { opacity: .72; transform: scale(.91); }
+  78% { transform: scale(1.035); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* The backdrop borrows the selected theme color for a restrained ambient glow. */
+.modal-backdrop {
+  background:
+    radial-gradient(ellipse at 52% 36%, color-mix(in srgb, var(--primary) 17%, transparent), transparent 66%),
+    rgba(12,19,14,.52);
+  backdrop-filter: blur(11px) saturate(1.12);
+  animation: overlay-arrive var(--motion-slow) ease both;
+}
+
+.modal,
+.tutorial-card {
+  animation-duration: var(--motion-slow);
+  animation-timing-function: var(--motion-spring);
+}
+
+@keyframes overlay-arrive {
+  from { opacity: 0; backdrop-filter: blur(0) saturate(1); }
+  to { opacity: 1; backdrop-filter: blur(11px) saturate(1.12); }
+}
+
+@keyframes modal-in {
+  from { opacity: .42; transform: translateY(16px) scale(.965); }
+  76% { opacity: 1; transform: translateY(-2px) scale(1.008); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes sheet-in {
+  from { opacity: .55; transform: translateY(26px) scale(.985); }
+  82% { opacity: 1; transform: translateY(-2px) scale(1.004); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (hover: hover) {
+  html[data-motion="amplified"] .nav-item:hover,
+  html[data-motion="amplified"] .settings-nav a:hover,
+  html[data-motion="amplified"] .help-topics summary:hover {
+    transform: translateY(-2px) scale(1.025);
+  }
+
+  html[data-motion="amplified"] .button:hover,
+  html[data-motion="amplified"] .icon-button:hover,
+  html[data-motion="amplified"] .close:hover {
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+html[data-motion="amplified"] .nav-item:active,
+html[data-motion="amplified"] .button:active,
+html[data-motion="amplified"] .icon-button:active {
+  transform: scale(.94);
+}
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+  transition-duration: 1ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="amplified"]) *,
+  html:not([data-motion="amplified"]) *::before,
+  html:not([data-motion="amplified"]) *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .modal-backdrop { background-color: rgba(12,19,14,.48); }
+  .modal { animation-duration: var(--motion-slow); }
+}
