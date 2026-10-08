@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'flow-shell-v5-5.0.4-20261008';
+const CACHE = 'flow-shell-v5-5.0.5-20261008';
 // Activate only when the user presses the update button, then reload that tab.
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
